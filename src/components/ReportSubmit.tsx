@@ -53,17 +53,7 @@ export default function ReportSubmit({ onBack }: ReportSubmitProps) {
       setLoading(true);
       setSuccessMessage('');
 
-      // Convert locale date to YYYY-MM-DD format for database query
       const dbDate = parseJSTDateLocale(selectedDate);
-
-      // Get readbooks from vital table
-      const { data: vitalData } = await supabase
-        .from('vital')
-        .select('readbooks')
-        .eq('user_id', userProfile.id)
-        .maybeSingle();
-
-      const readbooks = vitalData?.readbooks || 0;
 
       const { data, error } = await supabase
         .from('s_diaries')
@@ -81,7 +71,7 @@ export default function ReportSubmit({ onBack }: ReportSubmitProps) {
           o_speaking: data.o_speaking || 0,
           listening: data.listening || 0,
           words: data.words || 0,
-          ex_reading: readbooks,
+          ex_reading: data.ex_reading || 0,
           time: data.time || 0,
           self_judge: data.self_judge || 5,
           self_topic: data.self_topic || '',
@@ -97,7 +87,7 @@ export default function ReportSubmit({ onBack }: ReportSubmitProps) {
           o_speaking: 0,
           listening: 0,
           words: 0,
-          ex_reading: readbooks,
+          ex_reading: 0,
           time: 0,
           self_judge: 5,
           self_topic: '',
@@ -142,22 +132,12 @@ export default function ReportSubmit({ onBack }: ReportSubmitProps) {
       // Convert locale date to YYYY-MM-DD format for database
       const dbDate = parseJSTDateLocale(formData.date);
 
-      // Get existing diary to calculate energy and time difference
       const { data: existingDiary } = await supabase
         .from('s_diaries')
-        .select('s_reading, o_speaking, listening, words, time')
+        .select('s_reading, o_speaking, listening, words, time, ex_reading')
         .eq('user_id', userProfile.id)
         .eq('date', dbDate)
         .maybeSingle();
-
-      // Get readbooks from vital table
-      const { data: vitalData } = await supabase
-        .from('vital')
-        .select('readbooks')
-        .eq('user_id', userProfile.id)
-        .maybeSingle();
-
-      const readbooks = vitalData?.readbooks || 0;
 
       const diaryData = {
         user_id: userProfile.id,
@@ -167,7 +147,7 @@ export default function ReportSubmit({ onBack }: ReportSubmitProps) {
         o_speaking: formData.o_speaking,
         listening: formData.listening,
         words: formData.words,
-        ex_reading: formData.ex_reading,
+        ex_reading: existingDiary?.ex_reading ?? 0,
         time: formData.time,
         self_judge: formData.self_judge,
         self_topic: formData.self_topic,
