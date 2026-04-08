@@ -51,47 +51,69 @@ Deno.serve(async (req: Request) => {
 
     const genreList = genres.join(", ");
 
-    const userPrompt = `Generate 3 Japanese word-order quiz questions for genre: ${genreList}, difficulty: ${difficulty}.
+    const userPrompt = `Generate 3 word-order quiz questions. Genre: ${genreList}. Difficulty: ${difficulty}.
 
-TASK DEFINITION:
-Students see a Japanese sentence. They must arrange Japanese phrase BLOCKS into ENGLISH word order.
-Each block is a Japanese chunk that directly corresponds to exactly one English word or short phrase.
+HOW THE QUIZ WORKS:
+- The student sees a Japanese sentence.
+- The Japanese sentence is split into chunks (blocks).
+- The student must drag/tap those blocks into ENGLISH word order.
+- The correct arrangement of blocks in English order is stored in "answer".
 
-STRICT RULES:
-1. "blocks" = the Japanese sentence split into chunks, IN THE SAME ORDER AS THE JAPANESE SENTENCE (do NOT randomize - the frontend will shuffle them).
-2. "answer" = the SAME chunks from "blocks", rearranged into ENGLISH word order. Every chunk in "blocks" must appear exactly once in "answer".
-3. Each chunk must map to exactly one English word or short phrase. Do NOT split too finely (no particles alone) and do NOT merge too broadly.
-4. "english" = the full, natural English translation sentence.
-5. "hint" = one sentence in Japanese explaining the grammar point.
+STEP-BY-STEP PROCESS FOR EACH QUESTION:
+Step 1. Write a natural Japanese sentence appropriate for the genre and difficulty.
+Step 2. Write its natural English translation as "english".
+Step 3. Split the Japanese sentence into chunks where EACH chunk corresponds to EXACTLY ONE English word or short phrase in the English translation. Do not leave any English word uncovered. Do not have any chunk that maps to nothing.
+Step 4. "blocks" = those chunks listed IN JAPANESE SENTENCE ORDER (left to right as they appear).
+Step 5. "answer" = those SAME chunks listed IN THE ORDER THEY APPEAR IN THE ENGLISH SENTENCE (left to right). This must exactly match the word order of "english".
+Step 6. Verify: reading the "answer" array left-to-right should produce the same meaning as reading "english" word by word.
 
-DIFFICULTY:
-- 初級: 4–5 chunks, simple present/past
-- 中級: 5–6 chunks, time/place expressions
-- 上級: 6–8 chunks, complex clauses or passive
+DIFFICULTY GUIDE:
+- 初級: 4-5 chunks, simple present or past tense
+- 中級: 5-6 chunks, includes time or place expressions
+- 上級: 6-8 chunks, passive voice, relative clauses, or subordinate clauses
 
-EXAMPLE (correct format):
-Japanese: "私は昨日図書館で本を読みました"
-blocks (Japanese order): ["私は", "昨日", "図書館で", "本を", "読みました"]
-answer (English order): ["私は", "読みました", "本を", "図書館で", "昨日"]
-english: "I read a book at the library yesterday."
-hint: "場所や時間の副詞は英語では動詞の後ろに来ることが多い"
+WORKED EXAMPLE:
+Japanese: 私は毎朝公園でジョギングをします
+English:  I jog in the park every morning
+
+Chunk mapping (Japanese → English):
+  私は       → I           (position 1 in English)
+  毎朝       → every morning (position 5 in English)
+  公園で     → in the park  (position 3 in English)
+  ジョギングをします → jog    (position 2 in English)
+
+blocks (Japanese order): ["私は", "毎朝", "公園で", "ジョギングをします"]
+answer (English order):  ["私は", "ジョギングをします", "公園で", "毎朝"]
+
+Verify: "私は" = I, "ジョギングをします" = jog, "公園で" = in the park, "毎朝" = every morning
+=> "I jog in the park every morning" ✓ Matches english field.
 
 ANOTHER EXAMPLE:
-Japanese: "彼女は毎朝公園を走ります"
-blocks (Japanese order): ["彼女は", "毎朝", "公園を", "走ります"]
-answer (English order): ["彼女は", "走ります", "公園を", "毎朝"]
-english: "She runs in the park every morning."
-hint: "頻度を表す副詞句は英語では文末に置かれることが多い"
+Japanese: 彼女はその映画を昨日図書館で見ました
+English:  She watched that movie at the library yesterday
 
-Respond ONLY with valid JSON, no markdown:
+Chunk mapping:
+  彼女は     → She           (position 1)
+  その映画を → that movie    (position 3)
+  昨日       → yesterday     (position 5)
+  図書館で   → at the library (position 4)
+  見ました   → watched       (position 2)
+
+blocks: ["彼女は", "その映画を", "昨日", "図書館で", "見ました"]
+answer: ["彼女は", "見ました", "その映画を", "図書館で", "昨日"]
+
+Verify: "彼女は"=She, "見ました"=watched, "その映画を"=that movie, "図書館で"=at the library, "昨日"=yesterday
+=> "She watched that movie at the library yesterday" ✓
+
+OUTPUT FORMAT — respond with valid JSON only, no markdown fences:
 {
   "questions": [
     {
-      "japanese": "日本語の文",
-      "blocks": ["日本語順の", "チャンク", "配列"],
-      "answer": ["英語の語順に", "並べた", "チャンク配列"],
-      "english": "The natural English translation.",
-      "hint": "文法のポイント一文"
+      "japanese": "日本語文",
+      "blocks": ["日本語順チャンク1", "チャンク2", "チャンク3"],
+      "answer": ["英語の語順通りに並べたチャンク1", "チャンク2", "チャンク3"],
+      "english": "The natural English translation sentence.",
+      "hint": "文法ポイントの解説（日本語1文）"
     }
   ]
 }`;
@@ -106,7 +128,11 @@ Respond ONLY with valid JSON, no markdown:
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2048,
-        system: "You are a strict Japanese language quiz generator. You split Japanese sentences into chunks that map 1:1 to English words/phrases. The 'blocks' array is always in Japanese sentence order. The 'answer' array contains the same chunks in English word order. Always respond with valid JSON only.",
+        system: `You are a precise Japanese language quiz generator. Your job is to generate word-order quiz questions where Japanese sentence chunks must be arranged into English word order.
+
+CRITICAL RULE: The "answer" array must list the chunks in the EXACT order they appear in the English sentence. If "english" is "She watched that movie at the library yesterday", then "answer" must list the chunks in the order: She-chunk, watched-chunk, that-movie-chunk, at-the-library-chunk, yesterday-chunk.
+
+Always respond with valid JSON only, no markdown.`,
         messages: [{ role: "user", content: userPrompt }],
       }),
     });

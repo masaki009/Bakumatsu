@@ -59,11 +59,7 @@ export default function WordOrderQuiz({ onBack }: Props) {
       if (!data.questions || data.questions.length === 0) {
         throw new Error('問題の取得に失敗しました');
       }
-      const questions = data.questions as Question[];
-      return questions.map((q) => ({
-        ...q,
-        blocks: [...q.blocks].sort(() => Math.random() - 0.5),
-      }));
+      return data.questions as Question[];
     } finally {
       setIsLoading(false);
     }
