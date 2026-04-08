@@ -51,40 +51,47 @@ Deno.serve(async (req: Request) => {
 
     const genreList = genres.join(", ");
 
-    const userPrompt = `Generate 3 Japanese word-order quiz questions.
+    const userPrompt = `Generate 3 Japanese word-order quiz questions for genre: ${genreList}, difficulty: ${difficulty}.
 
-Genre: ${genreList}
-Difficulty: ${difficulty}
+TASK DEFINITION:
+Students see a Japanese sentence. They must arrange Japanese phrase BLOCKS into ENGLISH word order.
+Each block is a Japanese chunk that directly corresponds to exactly one English word or short phrase.
 
-Quiz concept:
-- The user sees a full Japanese sentence as context.
-- The user must rearrange Japanese phrase BLOCKS into the correct ENGLISH word order.
-- Each block is a short Japanese word or phrase that maps directly to one English word or short phrase.
-- "blocks" contains the Japanese blocks in RANDOM order.
-- "answer" contains the same Japanese blocks arranged in correct ENGLISH word order.
-- "english" is the full English translation sentence (shown to the user after they answer).
+STRICT RULES:
+1. "blocks" = the Japanese sentence split into chunks, IN THE SAME ORDER AS THE JAPANESE SENTENCE (do NOT randomize - the frontend will shuffle them).
+2. "answer" = the SAME chunks from "blocks", rearranged into ENGLISH word order. Every chunk in "blocks" must appear exactly once in "answer".
+3. Each chunk must map to exactly one English word or short phrase. Do NOT split too finely (no particles alone) and do NOT merge too broadly.
+4. "english" = the full, natural English translation sentence.
+5. "hint" = one sentence in Japanese explaining the grammar point.
 
-Rules:
-- 初級: 4–6 blocks, simple present/past tense
-- 中級: 5–7 blocks, include time/place/frequency expressions
-- 上級: 6–8 blocks, complex clauses, passive voice, conditionals allowed
+DIFFICULTY:
+- 初級: 4–5 chunks, simple present/past
+- 中級: 5–6 chunks, time/place expressions
+- 上級: 6–8 chunks, complex clauses or passive
 
-Example for "私は毎朝コーヒーを飲みます":
-  japanese: "私は毎朝コーヒーを飲みます"
-  blocks (random): ["コーヒーを", "毎朝", "飲みます", "私は"]
-  answer (English order): ["私は", "飲みます", "コーヒーを", "毎朝"]
-  english: "I drink coffee every morning."
-  hint: "頻度の副詞は文末に来ることが多い"
+EXAMPLE (correct format):
+Japanese: "私は昨日図書館で本を読みました"
+blocks (Japanese order): ["私は", "昨日", "図書館で", "本を", "読みました"]
+answer (English order): ["私は", "読みました", "本を", "図書館で", "昨日"]
+english: "I read a book at the library yesterday."
+hint: "場所や時間の副詞は英語では動詞の後ろに来ることが多い"
 
-Respond ONLY with this JSON structure:
+ANOTHER EXAMPLE:
+Japanese: "彼女は毎朝公園を走ります"
+blocks (Japanese order): ["彼女は", "毎朝", "公園を", "走ります"]
+answer (English order): ["彼女は", "走ります", "公園を", "毎朝"]
+english: "She runs in the park every morning."
+hint: "頻度を表す副詞句は英語では文末に置かれることが多い"
+
+Respond ONLY with valid JSON, no markdown:
 {
   "questions": [
     {
       "japanese": "日本語の文",
-      "blocks": ["ランダム順の", "日本語", "ブロック"],
-      "answer": ["英語の語順に", "並んだ", "日本語ブロック"],
-      "english": "The full English translation sentence.",
-      "hint": "文法のコツを日本語で一文で"
+      "blocks": ["日本語順の", "チャンク", "配列"],
+      "answer": ["英語の語順に", "並べた", "チャンク配列"],
+      "english": "The natural English translation.",
+      "hint": "文法のポイント一文"
     }
   ]
 }`;
@@ -99,7 +106,7 @@ Respond ONLY with this JSON structure:
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2048,
-        system: "You are a Japanese language quiz generator. You create word-order exercises where students rearrange Japanese phrase blocks into English word order. Always respond with valid JSON only. No markdown, no explanation.",
+        system: "You are a strict Japanese language quiz generator. You split Japanese sentences into chunks that map 1:1 to English words/phrases. The 'blocks' array is always in Japanese sentence order. The 'answer' array contains the same chunks in English word order. Always respond with valid JSON only.",
         messages: [{ role: "user", content: userPrompt }],
       }),
     });
@@ -114,7 +121,6 @@ Respond ONLY with this JSON structure:
 
     const data = await response.json();
     let rawText: string = data.content[0].text;
-
     rawText = rawText.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
 
     const parsed: ApiResponse = JSON.parse(rawText);
