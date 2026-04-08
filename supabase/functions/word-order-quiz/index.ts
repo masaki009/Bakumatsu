@@ -15,6 +15,7 @@ interface Question {
   japanese: string;
   blocks: string[];
   answer: string[];
+  english: string;
   hint: string;
 }
 
@@ -50,22 +51,39 @@ Deno.serve(async (req: Request) => {
 
     const genreList = genres.join(", ");
 
-    const userPrompt = `Generate 3 Japanese-to-English word order quiz questions.
+    const userPrompt = `Generate 3 Japanese word-order quiz questions.
+
 Genre: ${genreList}
 Difficulty: ${difficulty}
 
+Quiz concept:
+- The user sees a full Japanese sentence as context.
+- The user must rearrange Japanese phrase BLOCKS into the correct ENGLISH word order.
+- Each block is a short Japanese word or phrase that maps directly to one English word or short phrase.
+- "blocks" contains the Japanese blocks in RANDOM order.
+- "answer" contains the same Japanese blocks arranged in correct ENGLISH word order.
+- "english" is the full English translation sentence (shown to the user after they answer).
+
 Rules:
-- 初級: 4–6 English blocks, simple present/past tense
+- 初級: 4–6 blocks, simple present/past tense
 - 中級: 5–7 blocks, include time/place/frequency expressions
 - 上級: 6–8 blocks, complex clauses, passive voice, conditionals allowed
+
+Example for "私は毎朝コーヒーを飲みます":
+  japanese: "私は毎朝コーヒーを飲みます"
+  blocks (random): ["コーヒーを", "毎朝", "飲みます", "私は"]
+  answer (English order): ["私は", "飲みます", "コーヒーを", "毎朝"]
+  english: "I drink coffee every morning."
+  hint: "頻度の副詞は文末に来ることが多い"
 
 Respond ONLY with this JSON structure:
 {
   "questions": [
     {
       "japanese": "日本語の文",
-      "blocks": ["English", "word", "blocks", "in", "random", "order"],
-      "answer": ["correct", "English", "word", "order"],
+      "blocks": ["ランダム順の", "日本語", "ブロック"],
+      "answer": ["英語の語順に", "並んだ", "日本語ブロック"],
+      "english": "The full English translation sentence.",
       "hint": "文法のコツを日本語で一文で"
     }
   ]
@@ -81,7 +99,7 @@ Respond ONLY with this JSON structure:
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2048,
-        system: "You are a Japanese-to-English grammar quiz generator. Always respond with valid JSON only. No markdown, no explanation.",
+        system: "You are a Japanese language quiz generator. You create word-order exercises where students rearrange Japanese phrase blocks into English word order. Always respond with valid JSON only. No markdown, no explanation.",
         messages: [{ role: "user", content: userPrompt }],
       }),
     });

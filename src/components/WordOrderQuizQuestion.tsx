@@ -5,6 +5,7 @@ interface Question {
   japanese: string;
   blocks: string[];
   answer: string[];
+  english: string;
   hint: string;
 }
 
@@ -31,16 +32,6 @@ export default function WordOrderQuizQuestion({
   const [checked, setChecked] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
 
-  const remainingBlocks = question.blocks.filter((_, i) => {
-    const used = [...placedBlocks];
-    const idx = used.indexOf(question.blocks[i]);
-    if (idx !== -1) {
-      used.splice(idx, 1);
-      return false;
-    }
-    return true;
-  });
-
   const usedCounts: Record<string, number> = {};
   placedBlocks.forEach((w) => { usedCounts[w] = (usedCounts[w] || 0) + 1; });
 
@@ -60,12 +51,6 @@ export default function WordOrderQuizQuestion({
     setChecked(true);
   };
 
-  const handleNext = () => {
-    onNext(isCorrect);
-  };
-
-  const progressPct = (questionNumber / totalQuestions) * 100;
-
   return (
     <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center px-4 py-6">
       <div className="w-full max-w-[480px] flex flex-col gap-5">
@@ -74,7 +59,6 @@ export default function WordOrderQuizQuestion({
             <span className="text-sm font-semibold text-gray-400">
               問題 {questionNumber} / {totalQuestions}
             </span>
-            <span className="text-sm text-gray-500">{questionNumber - 1}/{totalQuestions} 完了</span>
           </div>
           <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
             <div
@@ -85,13 +69,13 @@ export default function WordOrderQuizQuestion({
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">日本語</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">日本語文</p>
           <p className="text-lg font-semibold text-white leading-relaxed">{question.japanese}</p>
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">並び替えた英文</p>
-          <div className="min-h-[56px] flex flex-wrap gap-2 bg-white/5 border-2 border-dashed border-white/20 rounded-2xl px-4 py-3">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">英語の語順に並べてください（日本語ブロック）</p>
+          <div className="min-h-[60px] flex flex-wrap gap-2 bg-white/5 border-2 border-dashed border-white/20 rounded-2xl px-4 py-3">
             {placedBlocks.length === 0 && (
               <span className="text-gray-600 text-sm italic">ブロックをタップして並べてください</span>
             )}
@@ -114,7 +98,7 @@ export default function WordOrderQuizQuestion({
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">単語ブロック</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">ブロック</p>
           <div className="flex flex-wrap gap-2 min-h-[48px]">
             {availableBlocks.map((word, i) => (
               <button
@@ -137,8 +121,8 @@ export default function WordOrderQuizQuestion({
         )}
 
         {checked && (
-          <div className={`rounded-xl px-4 py-3 ${isCorrect ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-red-500/15 border border-red-500/30'}`}>
-            <div className="flex items-center gap-2 mb-1">
+          <div className={`rounded-xl px-4 py-4 ${isCorrect ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-red-500/15 border border-red-500/30'}`}>
+            <div className="flex items-center gap-2 mb-3">
               {isCorrect ? (
                 <CheckCircle size={18} className="text-emerald-400" />
               ) : (
@@ -148,12 +132,18 @@ export default function WordOrderQuizQuestion({
                 {isCorrect ? '正解！' : '不正解'}
               </span>
             </div>
+
             {!isCorrect && (
-              <div className="mt-2">
+              <div className="mb-3">
                 <p className="text-xs text-gray-400 mb-1">正しい語順：</p>
                 <p className="text-sm text-white font-medium">{question.answer.join(' → ')}</p>
               </div>
             )}
+
+            <div className="pt-3 border-t border-white/10">
+              <p className="text-xs text-gray-400 mb-1">英文</p>
+              <p className="text-base text-white font-semibold">{question.english}</p>
+            </div>
           </div>
         )}
 
@@ -177,7 +167,7 @@ export default function WordOrderQuizQuestion({
             </button>
           ) : (
             <button
-              onClick={handleNext}
+              onClick={() => onNext(isCorrect)}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#534AB7] text-white font-bold text-sm hover:bg-[#4a41a3] transition-colors shadow-lg shadow-[#534AB7]/30"
             >
               {questionNumber < totalQuestions ? '次の問題' : '結果を見る'}

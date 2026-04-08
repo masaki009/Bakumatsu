@@ -7,6 +7,7 @@ interface Question {
   japanese: string;
   blocks: string[];
   answer: string[];
+  english: string;
   hint: string;
 }
 
