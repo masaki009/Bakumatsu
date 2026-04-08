@@ -130,6 +130,7 @@ export default function WordOrderQuiz({ onBack }: Props) {
   if (screen === 'quiz' && questions.length > 0) {
     return (
       <WordOrderQuizQuestion
+        key={currentIndex}
         question={questions[currentIndex]}
         questionNumber={currentIndex + 1}
         totalQuestions={questions.length}

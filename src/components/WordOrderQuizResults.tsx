@@ -18,33 +18,40 @@ export default function WordOrderQuizResults({ score, total, onContinue, onResta
   };
 
   const getScoreColor = () => {
-    if (pct === 100) return 'text-amber-300';
-    if (pct >= 67) return 'text-emerald-300';
-    if (pct >= 34) return 'text-blue-300';
-    return 'text-red-300';
+    if (pct === 100) return 'text-amber-500';
+    if (pct >= 67) return 'text-emerald-600';
+    if (pct >= 34) return 'text-blue-600';
+    return 'text-red-500';
+  };
+
+  const getBarColor = () => {
+    if (pct === 100) return 'bg-amber-400';
+    if (pct >= 67) return 'bg-emerald-500';
+    if (pct >= 34) return 'bg-blue-500';
+    return 'bg-red-400';
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-[480px] flex flex-col items-center gap-8">
         <div className="relative flex items-center justify-center">
-          <div className="w-32 h-32 rounded-full border-4 border-[#534AB7]/30 bg-[#534AB7]/10 flex flex-col items-center justify-center shadow-2xl shadow-[#534AB7]/20">
-            <Trophy size={32} className="text-[#534AB7] mb-1" />
+          <div className="w-32 h-32 rounded-full border-4 border-blue-100 bg-white flex flex-col items-center justify-center shadow-lg">
+            <Trophy size={32} className="text-blue-400 mb-1" />
             <span className={`text-3xl font-black ${getScoreColor()}`}>{score}/{total}</span>
           </div>
         </div>
 
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-1">結果発表</h2>
-          <p className="text-gray-400 text-base">{getMessage()}</p>
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">結果発表</h2>
+          <p className="text-slate-500 text-base">{getMessage()}</p>
         </div>
 
-        <div className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 flex items-center gap-4">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl px-6 py-5 flex items-center gap-4 shadow-sm">
           <div className="flex-1">
-            <p className="text-sm text-gray-400 mb-1">正解率</p>
-            <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+            <p className="text-sm text-slate-500 mb-2">正解率</p>
+            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#534AB7] rounded-full transition-all duration-700"
+                className={`h-full ${getBarColor()} rounded-full transition-all duration-700`}
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -55,14 +62,14 @@ export default function WordOrderQuizResults({ score, total, onContinue, onResta
         <div className="w-full flex flex-col gap-3">
           <button
             onClick={onContinue}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-[#534AB7] text-white font-bold text-base hover:bg-[#4a41a3] active:scale-95 transition-all shadow-xl shadow-[#534AB7]/30"
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-blue-500 text-white font-bold text-base hover:bg-blue-600 active:scale-95 transition-all shadow-lg shadow-blue-200"
           >
             <RefreshCw size={18} />
             次の3問へ
           </button>
           <button
             onClick={onRestart}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-white/10 text-gray-300 font-bold text-base hover:bg-white/20 active:scale-95 transition-all border border-white/10"
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-white text-slate-600 font-bold text-base hover:bg-slate-50 active:scale-95 transition-all border border-slate-200"
           >
             <RotateCcw size={18} />
             最初に戻る

@@ -37,23 +37,23 @@ export default function WordOrderQuizSetup({
   const canStart = selectedGenres.length > 0 && difficulty !== '' && !isLoading;
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center px-4 py-8">
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-[480px]">
         <div className="flex items-center gap-3 mb-8">
           <button
             onClick={onBack}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white">語順クイズ</h1>
-            <p className="text-sm text-gray-400 mt-0.5">日本語→英語 語順並び替え</p>
+            <h1 className="text-2xl font-bold text-slate-800">語順クイズ</h1>
+            <p className="text-sm text-slate-500 mt-0.5">日本語→英語 語順並び替え</p>
           </div>
         </div>
 
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
             ジャンル選択（複数可）
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -65,8 +65,8 @@ export default function WordOrderQuizSetup({
                   onClick={() => onToggleGenre(g)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     active
-                      ? 'bg-[#534AB7] text-white shadow-lg shadow-[#534AB7]/30'
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                      ? 'bg-blue-500 text-white shadow-md shadow-blue-200'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'
                   }`}
                 >
                   {g}
@@ -77,7 +77,7 @@ export default function WordOrderQuizSetup({
         </section>
 
         <section className="mb-10">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
             難易度選択
           </h2>
           <div className="space-y-3">
@@ -89,14 +89,14 @@ export default function WordOrderQuizSetup({
                   onClick={() => onSelectDifficulty(d.id)}
                   className={`w-full text-left px-5 py-4 rounded-xl border-2 transition-all ${
                     active
-                      ? 'border-[#534AB7] bg-[#534AB7]/20 shadow-lg shadow-[#534AB7]/20'
-                      : 'border-white/10 bg-white/5 hover:border-white/25 hover:bg-white/10'
+                      ? 'border-blue-500 bg-blue-50 shadow-md shadow-blue-100'
+                      : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'
                   }`}
                 >
-                  <span className={`font-bold text-base ${active ? 'text-white' : 'text-gray-300'}`}>
+                  <span className={`font-bold text-base ${active ? 'text-blue-700' : 'text-slate-700'}`}>
                     {d.label}
                   </span>
-                  <p className="text-xs text-gray-400 mt-0.5">{d.desc}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{d.desc}</p>
                 </button>
               );
             })}
@@ -108,8 +108,8 @@ export default function WordOrderQuizSetup({
           disabled={!canStart}
           className={`w-full py-4 rounded-xl text-base font-bold transition-all ${
             canStart
-              ? 'bg-[#534AB7] text-white hover:bg-[#4a41a3] shadow-xl shadow-[#534AB7]/40 active:scale-95'
-              : 'bg-white/10 text-gray-500 cursor-not-allowed'
+              ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-200 active:scale-95'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
         >
           {isLoading ? (
