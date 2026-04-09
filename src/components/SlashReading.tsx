@@ -106,6 +106,7 @@ export default function SlashReading({ onBack }: Props) {
         .from('s_diaries')
         .select('ex_reading')
         .eq('user_id', user.id)
+        .eq('date', today)
         .maybeSingle();
       if (readError) throw readError;
 
@@ -113,7 +114,8 @@ export default function SlashReading({ onBack }: Props) {
         const { error: updateError } = await supabase
           .from('s_diaries')
           .update({ ex_reading: (diaryData.ex_reading ?? 0) + wordCount })
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .eq('date', today);
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase.from('s_diaries').insert({
