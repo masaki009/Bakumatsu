@@ -102,15 +102,29 @@ export default function SlashReading({ onBack }: Props) {
     setSaveMessage(null);
     try {
       const today = getJSTDate();
-      const { error } = await supabase.rpc('exr_reading_rec', {
-        p_user_id: user.id,
-        p_email: user.email,
-        p_reading_date: today,
-        p_words: wordCount,
-        p_wpm: 0,
-        p_is_reading_aloud: false,
-      });
-      if (error) throw error;
+      const { data: diaryData, error: readError } = await supabase
+        .from('s_diaries')
+        .select('ex_reading')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (readError) throw readError;
+
+      if (diaryData) {
+        const { error: updateError } = await supabase
+          .from('s_diaries')
+          .update({ ex_reading: (diaryData.ex_reading ?? 0) + wordCount })
+          .eq('user_id', user.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase.from('s_diaries').insert({
+          user_id: user.id,
+          email: user.email,
+          date: today,
+          ex_reading: wordCount,
+        });
+        if (insertError) throw insertError;
+      }
+
       setSaved(true);
       setSaveMessage({ type: 'success', text: `${wordCount}語を記録しました！` });
     } catch (err: unknown) {
@@ -133,8 +147,8 @@ export default function SlashReading({ onBack }: Props) {
               <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-800">スラッシュリーディング</h1>
-              <p className="text-xs text-slate-500">テーマを選んでください</p>
+              <h1 className="text-2xl font-bold text-slate-800">スラッシュリーディング</h1>
+              <p className="text-sm text-slate-500">テーマを選んでください</p>
             </div>
           </div>
 
@@ -146,14 +160,14 @@ export default function SlashReading({ onBack }: Props) {
                 <button
                   key={theme}
                   onClick={() => handleSelectTheme(theme)}
-                  className={`${style.bg} ${style.border} border-2 rounded-2xl p-5 flex flex-col items-center gap-3 transition-all active:scale-95 shadow-sm`}
+                  className={`${style.bg} ${style.border} border-2 rounded-2xl p-6 flex flex-col items-center gap-4 transition-all active:scale-95 shadow-sm`}
                 >
-                  <div className={`p-3 rounded-xl ${style.icon}`}>
-                    <Icon size={26} />
+                  <div className={`p-4 rounded-2xl ${style.icon}`}>
+                    <Icon size={32} />
                   </div>
                   <div className="text-center">
-                    <p className="text-base font-bold text-slate-800">{THEME_CONFIG[theme].label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">AIが生成</p>
+                    <p className="text-xl font-bold text-slate-800">{THEME_CONFIG[theme].label}</p>
+                    <p className="text-sm text-slate-500 mt-1">AIが生成</p>
                   </div>
                 </button>
               );

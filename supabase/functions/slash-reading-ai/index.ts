@@ -66,7 +66,7 @@ OUTPUT — respond with valid JSON only, no markdown fences:
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-20250514",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 1024,
         system: `You are an English reading practice content generator for Japanese learners.
 Generate natural, engaging passages split into phrase chunks suitable for slash reading practice.
