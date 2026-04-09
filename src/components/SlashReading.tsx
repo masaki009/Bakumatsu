@@ -1,17 +1,9 @@
-import { useState } from 'react';
-import { Home, MapPin, Briefcase, Coffee, ArrowLeft, ChevronRight, BookOpen, CheckCircle, Loader2, Save } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Home, MapPin, Briefcase, Coffee, ArrowLeft, ChevronRight, BookOpen, CheckCircle, Loader2, Save, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getJSTDate } from '../utils/dateUtils';
-import {
-  PASSAGES,
-  THEME_CONFIG,
-  getPassagesByTheme,
-  getPlainText,
-  countWords,
-  type Theme,
-  type Passage,
-} from '../data/slashReadingPassages';
+import { THEME_CONFIG, getPlainText, countWords, type Theme, type Passage } from '../data/slashReadingPassages';
 
 interface Props {
   onBack: () => void;
@@ -39,45 +31,69 @@ export default function SlashReading({ onBack }: Props) {
   const { user } = useAuth();
   const [phase, setPhase] = useState<'theme-select' | 'reading'>('theme-select');
   const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null);
-  const [passageIndex, setPassageIndex] = useState(0);
   const [step, setStep] = useState<Step>(0);
+  const [currentPassage, setCurrentPassage] = useState<Passage | null>(null);
+  const [loadingPassage, setLoadingPassage] = useState(false);
+  const [passageError, setPassageError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const themePassages = selectedTheme ? getPassagesByTheme(selectedTheme) : [];
-  const currentPassage: Passage | null = themePassages[passageIndex] ?? null;
   const plainText = currentPassage ? getPlainText(currentPassage) : '';
   const wordCount = plainText ? countWords(plainText) : 0;
 
+  const fetchPassage = useCallback(async (theme: Theme) => {
+    setLoadingPassage(true);
+    setPassageError(null);
+    setCurrentPassage(null);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/slash-reading-ai`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ theme }),
+        }
+      );
+      if (!response.ok) throw new Error('パッセージの生成に失敗しました');
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      setCurrentPassage({ id: `ai-${Date.now()}`, theme, chunks: data.chunks });
+    } catch (err) {
+      setPassageError(err instanceof Error ? err.message : 'AI生成に失敗しました');
+    } finally {
+      setLoadingPassage(false);
+    }
+  }, []);
+
   const handleSelectTheme = (theme: Theme) => {
     setSelectedTheme(theme);
-    setPassageIndex(0);
     setStep(0);
     setSaved(false);
     setSaveMessage(null);
     setPhase('reading');
+    fetchPassage(theme);
   };
 
   const handleNext = () => {
-    const nextIndex = passageIndex + 1;
-    if (nextIndex < themePassages.length) {
-      setPassageIndex(nextIndex);
-    } else {
-      setPassageIndex(0);
-    }
+    if (!selectedTheme) return;
     setStep(0);
     setSaved(false);
     setSaveMessage(null);
+    fetchPassage(selectedTheme);
   };
 
   const handleBackToThemes = () => {
     setPhase('theme-select');
     setSelectedTheme(null);
-    setPassageIndex(0);
     setStep(0);
     setSaved(false);
     setSaveMessage(null);
+    setCurrentPassage(null);
+    setPassageError(null);
   };
 
   const handleSave = async () => {
@@ -86,55 +102,15 @@ export default function SlashReading({ onBack }: Props) {
     setSaveMessage(null);
     try {
       const today = getJSTDate();
-
-      const { data: existing, error: fetchError } = await supabase
-        .from('ex_reading')
-        .select('words')
-        .eq('user_id', user.id)
-        .eq('reading_date', today)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('ex_reading')
-          .update({ words: (existing.words ?? 0) + wordCount })
-          .eq('user_id', user.id)
-          .eq('reading_date', today);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase.from('ex_reading').insert({
-          user_id: user.id,
-          email: user.email,
-          reading_date: today,
-          words: wordCount,
-          wpm: 0,
-          is_reading_aloud: false,
-        });
-        if (insertError) throw insertError;
-      }
-
-      const { data: diaryData, error: diaryReadError } = await supabase
-        .from('s_diaries')
-        .select('ex_reading')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!diaryReadError && diaryData) {
-        await supabase
-          .from('s_diaries')
-          .update({ ex_reading: (diaryData.ex_reading ?? 0) + wordCount })
-          .eq('user_id', user.id);
-      } else {
-        await supabase.from('s_diaries').insert({
-          user_id: user.id,
-          email: user.email,
-          date: today,
-          ex_reading: wordCount,
-        });
-      }
-
+      const { error } = await supabase.rpc('exr_reading_rec', {
+        p_user_id: user.id,
+        p_email: user.email,
+        p_reading_date: today,
+        p_words: wordCount,
+        p_wpm: 0,
+        p_is_reading_aloud: false,
+      });
+      if (error) throw error;
       setSaved(true);
       setSaveMessage({ type: 'success', text: `${wordCount}語を記録しました！` });
     } catch (err: unknown) {
@@ -166,7 +142,6 @@ export default function SlashReading({ onBack }: Props) {
             {THEME_ORDER.map((theme) => {
               const Icon = THEME_ICONS[theme];
               const style = THEME_CARD_STYLES[theme];
-              const count = getPassagesByTheme(theme).length;
               return (
                 <button
                   key={theme}
@@ -178,7 +153,7 @@ export default function SlashReading({ onBack }: Props) {
                   </div>
                   <div className="text-center">
                     <p className="text-base font-bold text-slate-800">{THEME_CONFIG[theme].label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{count}本</p>
+                    <p className="text-xs text-slate-500 mt-0.5">AIが生成</p>
                   </div>
                 </button>
               );
@@ -199,11 +174,68 @@ export default function SlashReading({ onBack }: Props) {
     );
   }
 
-  if (!currentPassage || !selectedTheme) return null;
+  if (!selectedTheme) return null;
 
   const themeStyle = THEME_CARD_STYLES[selectedTheme];
   const themeConfig = THEME_CONFIG[selectedTheme];
   const ThemeIcon = THEME_ICONS[selectedTheme];
+
+  if (loadingPassage) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center px-4 py-6">
+        <div className="w-full max-w-[480px] flex flex-col gap-5">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBackToThemes}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="flex-1">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${themeStyle.badge}`}>
+                <ThemeIcon size={11} />
+                {themeConfig.label}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl px-6 py-12 shadow-sm flex flex-col items-center gap-4">
+            <Loader2 size={32} className="text-blue-400 animate-spin" />
+            <p className="text-sm text-slate-500">AIがパッセージを生成中...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (passageError) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center px-4 py-6">
+        <div className="w-full max-w-[480px] flex flex-col gap-5">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBackToThemes}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          </div>
+          <div className="bg-white border border-red-200 rounded-2xl px-6 py-8 shadow-sm flex flex-col items-center gap-4">
+            <p className="text-sm text-red-600 text-center">{passageError}</p>
+            <button
+              onClick={() => fetchPassage(selectedTheme)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600 transition-colors"
+            >
+              <RefreshCw size={14} />
+              再試行
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentPassage) return null;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center px-4 py-6">
@@ -222,9 +254,6 @@ export default function SlashReading({ onBack }: Props) {
                 <ThemeIcon size={11} />
                 {themeConfig.label}
               </span>
-              <span className="text-xs text-slate-400">
-                {passageIndex + 1} / {themePassages.length}
-              </span>
             </div>
             <h1 className="text-sm font-bold text-slate-700 mt-0.5">スラッシュリーディング</h1>
           </div>
@@ -233,7 +262,7 @@ export default function SlashReading({ onBack }: Props) {
         <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-400 rounded-full transition-all duration-500"
-            style={{ width: `${((step) / 2) * 100}%` }}
+            style={{ width: `${(step / 2) * 100}%` }}
           />
         </div>
 
