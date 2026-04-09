@@ -43,15 +43,15 @@ export default function WordOrderQuizQuestion({
   const [challengeLoading, setChallengeLoading] = useState(false);
   const [challengeError, setChallengeError] = useState('');
 
-  const usedCounts: Record<string, number> = {};
-  placedBlocks.forEach((w) => { usedCounts[w] = (usedCounts[w] || 0) + 1; });
+  const usedCountsCopy: Record<string, number> = {};
+  placedBlocks.forEach((w) => { usedCountsCopy[w] = (usedCountsCopy[w] || 0) + 1; });
 
-  const availableBlocks = question.blocks.filter((w) => {
-    if (usedCounts[w] > 0) {
-      usedCounts[w]--;
-      return false;
+  const blockUsed = question.blocks.map((w) => {
+    if (usedCountsCopy[w] > 0) {
+      usedCountsCopy[w]--;
+      return true;
     }
-    return true;
+    return false;
   });
 
   const handleCheck = () => {
@@ -166,16 +166,26 @@ export default function WordOrderQuizQuestion({
         <div>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">選択肢（タップして追加）</p>
           <div className="flex flex-wrap gap-2 min-h-[48px]">
-            {availableBlocks.map((word, i) => (
-              <button
-                key={i}
-                onClick={() => !checked && onPlaceBlock(word)}
-                disabled={checked}
-                className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-full text-sm font-semibold hover:bg-slate-50 hover:border-blue-400 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-default"
-              >
-                {word}
-              </button>
-            ))}
+            {question.blocks.map((word, i) =>
+              blockUsed[i] ? (
+                <div
+                  key={i}
+                  className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 border-dashed border-slate-200 text-transparent select-none"
+                  aria-hidden="true"
+                >
+                  {word}
+                </div>
+              ) : (
+                <button
+                  key={i}
+                  onClick={() => !checked && onPlaceBlock(word)}
+                  disabled={checked}
+                  className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-full text-sm font-semibold hover:bg-slate-50 hover:border-blue-400 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-default"
+                >
+                  {word}
+                </button>
+              )
+            )}
           </div>
         </div>
 
