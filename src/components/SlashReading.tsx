@@ -220,10 +220,12 @@ export default function SlashReading({ onBack }: Props) {
 
         {step === 0 && (
           <>
-            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-5 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">英文</p>
-              <p className="text-base text-slate-800 leading-relaxed font-medium">{plainText}</p>
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+            <div className="bg-white border border-slate-200 rounded-2xl px-6 py-6 shadow-sm min-h-[200px] flex flex-col justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">英文</p>
+                <p className="text-[20px] text-slate-800 leading-[1.8] font-medium">{plainText}</p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-xs text-slate-400">読んでみましょう</span>
                 <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">{wordCount}語</span>
               </div>
@@ -241,19 +243,21 @@ export default function SlashReading({ onBack }: Props) {
 
         {step === 1 && (
           <>
-            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-5 shadow-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">スラッシュ英文</p>
-              <div className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
-                {currentPassage.chunks.map((chunk, i) => (
-                  <span key={i} className="inline-flex items-baseline gap-1">
-                    <span className="text-base text-slate-800 leading-relaxed font-medium">{chunk.en}</span>
-                    {i < currentPassage.chunks.length - 1 && (
-                      <span className="text-blue-400 font-bold text-lg leading-none select-none">/</span>
-                    )}
-                  </span>
-                ))}
+            <div className="bg-white border border-slate-200 rounded-2xl px-6 py-6 shadow-sm min-h-[200px] flex flex-col justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">スラッシュ英文</p>
+                <p className="text-[20px] text-slate-800 leading-[1.8] font-medium">
+                  {currentPassage.chunks.map((chunk, i) => (
+                    <span key={i}>
+                      {chunk.en}
+                      {i < currentPassage.chunks.length - 1 && (
+                        <span className="text-blue-400 font-bold mx-1 select-none">/</span>
+                      )}
+                    </span>
+                  ))}
+                </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-100">
+              <div className="mt-5 pt-3 border-t border-slate-100">
                 <span className="text-xs text-slate-400">スラッシュごとに意味をつかんで前から読んでみましょう</span>
               </div>
             </div>
@@ -276,9 +280,9 @@ export default function SlashReading({ onBack }: Props) {
               </div>
               <div className="divide-y divide-slate-100">
                 {currentPassage.chunks.map((chunk, i) => (
-                  <div key={i} className="px-4 py-3 grid grid-cols-1 gap-1">
-                    <p className="text-sm font-semibold text-blue-700 leading-relaxed">{chunk.en}</p>
-                    <p className="text-sm text-slate-600 leading-relaxed">{chunk.ja}</p>
+                  <div key={i} className="px-5 py-3.5 grid grid-cols-1 gap-1">
+                    <p className="text-base font-semibold text-blue-700 leading-relaxed">{chunk.en}</p>
+                    <p className="text-base text-slate-600 leading-relaxed">{chunk.ja}</p>
                   </div>
                 ))}
               </div>
