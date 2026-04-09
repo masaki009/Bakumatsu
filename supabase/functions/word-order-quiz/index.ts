@@ -180,8 +180,23 @@ Respond with valid JSON only, no markdown.`,
 
     const parsed: ApiResponse = JSON.parse(rawText);
 
+    const validQuestions = parsed.questions.filter((q) => {
+      if (!q.blocks || !q.answer) return false;
+      if (q.blocks.length !== q.answer.length) return false;
+      const sortedBlocks = [...q.blocks].sort();
+      const sortedAnswer = [...q.answer].sort();
+      return sortedBlocks.every((b, i) => b === sortedAnswer[i]);
+    });
+
+    if (validQuestions.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Generated questions had mismatched blocks/answer. Please retry." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
-      JSON.stringify(parsed),
+      JSON.stringify({ questions: validQuestions }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
