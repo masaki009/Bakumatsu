@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft } from 'lucide-react';
+import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors } from 'lucide-react';
 import CoachProfile from './CoachProfile';
 import SelfProfile from './SelfProfile';
 import ReportSubmit from './ReportSubmit';
@@ -25,6 +25,7 @@ import BaseballVocabulary from './BaseballVocabulary';
 import ReferenceViewer from './ReferenceViewer';
 import LinkCollection from './LinkCollection';
 import WordOrderQuiz from './WordOrderQuiz';
+import SlashReading from './SlashReading';
 import { useGameData } from '../hooks/useGameData';
 
 type SubMenuItem = {
@@ -70,6 +71,7 @@ export default function UserMenu() {
         { id: 'listening-practice', label: 'リスニング練習', icon: Headphones },
         { id: 'baseball-vocabulary', label: '英単語100本ノック', icon: Target },
         { id: 'word-order-quiz', label: '語順クイズ', icon: AlignLeft },
+        { id: 'slash-reading', label: 'スラッシュリーディング', icon: Scissors },
       ],
     },
     {
@@ -259,6 +261,10 @@ export default function UserMenu() {
     return <WordOrderQuiz onBack={handleBackToSubMenu} />;
   }
 
+  if (selectedSubMenu === 'slash-reading') {
+    return <SlashReading onBack={handleBackToSubMenu} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -405,9 +411,9 @@ export default function UserMenu() {
                   <h3 className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b border-blue-300">
                     素読法、空耳法などのトレーニング
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {currentMenu?.subItems
-                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz'].includes(item.id))
+                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz', 'slash-reading'].includes(item.id))
                       .map((subItem) => {
                         const SubIcon = subItem.icon;
                         return (
