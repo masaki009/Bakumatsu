@@ -44,13 +44,18 @@ export default function VocabularyNotionViewer({ onBack }: VocabularyNotionViewe
         }
       );
 
-      const data = await response.json();
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`HTTPエラー: ${response.status}`);
+      }
 
       if (!response.ok) {
         if (data.not_configured) {
           setIsNotConfigured(true);
         } else {
-          throw new Error(data.error || 'データの取得に失敗しました');
+          throw new Error(data.error || `HTTPエラー: ${response.status}`);
         }
         return;
       }
