@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors } from 'lucide-react';
+import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors, Languages } from 'lucide-react';
 import CoachProfile from './CoachProfile';
 import SelfProfile from './SelfProfile';
 import ReportSubmit from './ReportSubmit';
@@ -26,6 +26,7 @@ import ReferenceViewer from './ReferenceViewer';
 import LinkCollection from './LinkCollection';
 import WordOrderQuiz from './WordOrderQuiz';
 import SlashReading from './SlashReading';
+import JapaneseToEnglishProcess from './JapaneseToEnglishProcess';
 import { useGameData } from '../hooks/useGameData';
 
 type SubMenuItem = {
@@ -72,6 +73,7 @@ export default function UserMenu() {
         { id: 'baseball-vocabulary', label: '英単語100本ノック', icon: Target },
         { id: 'word-order-quiz', label: '語順クイズ', icon: AlignLeft },
         { id: 'slash-reading', label: 'スラッシュリーディング', icon: Scissors },
+        { id: 'japanese-english-process', label: '和英プロセス練習', icon: Languages },
       ],
     },
     {
@@ -265,6 +267,10 @@ export default function UserMenu() {
     return <SlashReading onBack={handleBackToSubMenu} />;
   }
 
+  if (selectedSubMenu === 'japanese-english-process') {
+    return <JapaneseToEnglishProcess onBack={handleBackToSubMenu} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -413,7 +419,7 @@ export default function UserMenu() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {currentMenu?.subItems
-                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz', 'slash-reading'].includes(item.id))
+                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz', 'slash-reading', 'japanese-english-process'].includes(item.id))
                       .map((subItem) => {
                         const SubIcon = subItem.icon;
                         return (
