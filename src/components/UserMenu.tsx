@@ -65,8 +65,8 @@ export default function UserMenu() {
       subItems: [
         { id: 'simultaneous', label: 'サイマル　英和', icon: Layers, url: 'https://chatgpt.com/g/g-ExL0moSVr-saimaru-ying-he-mu-mo-ying-yu-shu-ju-du-fa' },
         { id: 'paraphrase', label: 'パラフレイズ　和英', icon: MessageSquare, url: 'https://chatgpt.com/g/g-683febd1030c8191bd863162c7675c4a-harahureisu-he-ying-mu-mo-ying-yu-shu-ju-du-fa' },
-        { id: 'chunk', label: 'チャンク', icon: Database },
-        { id: 'vocabulary', label: 'ボキャブラ', icon: BookOpen },
+        { id: 'chunk', label: 'チャンク　直接アクセス', icon: Database },
+        { id: 'vocabulary', label: 'ボキャブラ　直接アクセス', icon: BookOpen },
         { id: 'ex-reading', label: '多読速読音読', icon: Mic },
         { id: 'audio-memory', label: '音声神経衰弱', icon: Music },
         { id: 'listening-practice', label: 'リスニング練習', icon: Headphones },
