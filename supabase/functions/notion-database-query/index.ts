@@ -21,11 +21,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const supabaseClient = createClient(
+    const authClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } }
     );
+
+    const { data: { user }, error: userError } = await authClient.auth.getUser();
+    if (userError || !user?.email) {
+      return new Response(
+        JSON.stringify({ error: "認証に失敗しました" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const body = await req.json();
     const { db_type } = body;
@@ -37,9 +45,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: notionSettings, error: notionError } = await supabaseClient
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: notionSettings, error: notionError } = await serviceClient
       .from("user_notion")
       .select("notion_api_key, db_id_chunk, db_id_vocab, db_id_jtoe, db_id_simul")
+      .eq("email", user.email)
       .maybeSingle();
 
     if (notionError || !notionSettings) {
