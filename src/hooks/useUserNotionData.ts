@@ -39,10 +39,13 @@ export function useUserNotionData(dbType: 'chunk') {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const apiUrl = `${supabaseUrl}/functions/v1/notion-database-query?db_type=${dbType}`;
 
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
+          'apikey': supabaseAnonKey,
           'Content-Type': 'application/json',
         },
       });
