@@ -149,7 +149,7 @@ export default function SlashReading({ onBack }: Props) {
               <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">スラッシュリーディング</h1>
+              <h1 className="text-2xl font-bold text-slate-800">句読法（英 → 和）</h1>
               <p className="text-sm text-slate-500">テーマを選んでください</p>
             </div>
           </div>
