@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors, Languages } from 'lucide-react';
+import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors, Languages, Volume2 } from 'lucide-react';
 import CoachProfile from './CoachProfile';
 import SelfProfile from './SelfProfile';
 import ReportSubmit from './ReportSubmit';
@@ -27,6 +27,7 @@ import LinkCollection from './LinkCollection';
 import WordOrderQuiz from './WordOrderQuiz';
 import SlashReading from './SlashReading';
 import JapaneseToEnglishProcess from './JapaneseToEnglishProcess';
+import SoundChangeChunk from './SoundChangeChunk';
 import { useGameData } from '../hooks/useGameData';
 
 type SubMenuItem = {
@@ -74,6 +75,7 @@ export default function UserMenu() {
         { id: 'word-order-quiz', label: '語順クイズ', icon: AlignLeft },
         { id: 'slash-reading', label: 'スラッシュリーディング', icon: Scissors },
         { id: 'japanese-english-process', label: '和英プロセス練習', icon: Languages },
+        { id: 'sound-change-chunk', label: '音変化チャンク', icon: Volume2 },
       ],
     },
     {
@@ -271,6 +273,10 @@ export default function UserMenu() {
     return <JapaneseToEnglishProcess onBack={handleBackToSubMenu} />;
   }
 
+  if (selectedSubMenu === 'sound-change-chunk') {
+    return <SoundChangeChunk onBack={handleBackToSubMenu} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <header className="bg-white border-b border-gray-200 shadow-sm">
@@ -419,7 +425,7 @@ export default function UserMenu() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {currentMenu?.subItems
-                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz', 'slash-reading', 'japanese-english-process'].includes(item.id))
+                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz', 'slash-reading', 'japanese-english-process', 'sound-change-chunk'].includes(item.id))
                       .map((subItem) => {
                         const SubIcon = subItem.icon;
                         return (
