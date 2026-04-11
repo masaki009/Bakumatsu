@@ -18,6 +18,8 @@ interface SoundChangeExample {
   translation: string;
   chunks: Chunk[];
   miniLecture: string;
+  batchStart: number;
+  batchSize: number;
 }
 
 const TYPES: SoundChangeType[] = ['脱落・弱化', '同化', 'リンキング', '短縮形', 'ミックス'];
@@ -42,6 +44,15 @@ interface Props {
   onBack?: () => void;
 }
 
+function speakEnglish(text: string) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  utter.rate = 0.9;
+  window.speechSynthesis.speak(utter);
+}
+
 export default function SoundChangeChunk({ onBack }: Props) {
   const [selectedType, setSelectedType] = useState<SoundChangeType>('同化');
   const [history, setHistory] = useState<SoundChangeExample[]>([]);
@@ -53,6 +64,9 @@ export default function SoundChangeChunk({ onBack }: Props) {
   const [showTranslation, setShowTranslation] = useState(false);
 
   const current = currentIndex >= 0 ? history[currentIndex] : null;
+
+  const positionInBatch = current ? currentIndex - current.batchStart + 1 : 0;
+  const batchTotal = current ? current.batchSize : 3;
 
   const fetchExamples = async () => {
     setLoading(true);
@@ -80,11 +94,14 @@ export default function SoundChangeChunk({ onBack }: Props) {
         throw new Error(data.error || '例文の生成に失敗しました');
       }
 
-      const newExamples: SoundChangeExample[] = data.examples;
+      const rawExamples = data.examples as Omit<SoundChangeExample, 'batchStart' | 'batchSize'>[];
+
       setHistory(prev => {
-        const updated = [...prev, ...newExamples];
-        setCurrentIndex(updated.length - newExamples.length);
-        return updated;
+        const batchStart = prev.length;
+        const batchSize = rawExamples.length;
+        const newExamples: SoundChangeExample[] = rawExamples.map(e => ({ ...e, batchStart, batchSize }));
+        setCurrentIndex(batchStart);
+        return [...prev, ...newExamples];
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '例文の生成に失敗しました');
@@ -127,14 +144,17 @@ export default function SoundChangeChunk({ onBack }: Props) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ chunks: current.chunks, type: current.type }),
+        body: JSON.stringify({
+          chunks: current.chunks,
+          type: current.type,
+          sentence: current.sentence,
+          translation: current.translation,
+        }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Notionへの書き込みに失敗しました');
-      }
+      if (!res.ok) throw new Error(data.error || 'Notionへの書き込みに失敗しました');
 
       if (data.anySuccess) {
         const count = data.results.filter((r: { success: boolean }) => r.success).length;
@@ -150,40 +170,44 @@ export default function SoundChangeChunk({ onBack }: Props) {
   };
 
   const chipBase = 'px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all duration-150 cursor-pointer select-none';
+  const typeColor = (t: string) => TYPE_COLORS[t as SoundChangeType] ?? 'bg-gray-100 text-gray-700 border-gray-300';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
-      {/* Header */}
+
+      {/* Header row */}
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <ArrowLeft className="h-5 w-5 text-gray-600" />
             </button>
           )}
-          <div className="flex items-center gap-2 mr-4">
-            <div className="p-1.5 bg-blue-100 rounded-lg">
-              <Volume2 className="h-5 w-5 text-blue-600" />
-            </div>
-            <span className="font-bold text-gray-900 text-lg">音変化チャンク</span>
+          <div className="p-1.5 bg-blue-100 rounded-lg">
+            <Volume2 className="h-5 w-5 text-blue-600" />
           </div>
+          <span className="font-bold text-gray-900 text-lg">音変化チャンク</span>
+        </div>
 
-          <div className="flex flex-wrap gap-2 flex-1">
-            {TYPES.map(t => (
-              <button
-                key={t}
-                onClick={() => { setSelectedType(t); setNotionStatus('idle'); }}
-                className={`${chipBase} border ${selectedType === t ? TYPE_SELECTED[t] : TYPE_COLORS[t]}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+        {/* Type chips row */}
+        <div className="max-w-3xl mx-auto px-4 pb-3 flex flex-wrap gap-2">
+          {TYPES.map(t => (
+            <button
+              key={t}
+              onClick={() => { setSelectedType(t); setNotionStatus('idle'); }}
+              className={`${chipBase} border ${selectedType === t ? TYPE_SELECTED[t] : TYPE_COLORS[t]}`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
 
+        {/* Generate button row */}
+        <div className="max-w-3xl mx-auto px-4 pb-3">
           <button
             onClick={fetchExamples}
             disabled={loading}
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-all duration-150 whitespace-nowrap"
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-all duration-150"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
             例文を生成する
@@ -191,15 +215,13 @@ export default function SoundChangeChunk({ onBack }: Props) {
         </div>
       </div>
 
-      {/* Main */}
+      {/* Main content */}
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-6 flex flex-col gap-4">
 
-        {/* Error */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">{error}</div>
         )}
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="flex flex-col gap-4 animate-pulse">
             {[1, 2].map(i => (
@@ -208,14 +230,14 @@ export default function SoundChangeChunk({ onBack }: Props) {
           </div>
         )}
 
-        {/* Example card */}
         {!loading && current && (
           <>
             {/* Sentence card */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-6 pt-5 pb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`px-3 py-0.5 rounded-full text-xs font-bold border ${TYPE_COLORS[current.type as SoundChangeType] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+              <div className="px-6 pt-5 pb-5">
+                {/* Badges */}
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <span className={`px-3 py-0.5 rounded-full text-xs font-bold border ${typeColor(current.type)}`}>
                     {current.type}
                   </span>
                   {current.source && (
@@ -226,17 +248,29 @@ export default function SoundChangeChunk({ onBack }: Props) {
                   )}
                 </div>
 
+                {/* Sentence */}
                 <p className="text-2xl font-bold text-gray-900 leading-relaxed mb-1">{current.sentence}</p>
                 {current.spokenForm && (
                   <p className="text-sm text-blue-500 font-medium mb-3">▶ {current.spokenForm}</p>
                 )}
 
-                <button
-                  onClick={() => setShowTranslation(v => !v)}
-                  className="text-sm text-gray-400 hover:text-gray-700 underline underline-offset-2 transition-colors"
-                >
-                  {showTranslation ? '和訳を隠す' : '和訳を表示'}
-                </button>
+                {/* Translation toggle + audio */}
+                <div className="flex items-center gap-3 mt-3">
+                  <button
+                    onClick={() => setShowTranslation(v => !v)}
+                    className="text-sm text-gray-400 hover:text-gray-700 underline underline-offset-2 transition-colors"
+                  >
+                    {showTranslation ? '和訳を隠す' : '和訳を表示'}
+                  </button>
+                  <button
+                    onClick={() => speakEnglish(current.sentence)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    <Volume2 className="h-3.5 w-3.5" />
+                    音声
+                  </button>
+                </div>
+
                 {showTranslation && (
                   <p className="mt-2 text-base text-gray-600 font-medium">{current.translation}</p>
                 )}
@@ -270,14 +304,14 @@ export default function SoundChangeChunk({ onBack }: Props) {
 
             {/* Notion feedback */}
             {notionStatus !== 'idle' && (
-              <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium ${
-                notionStatus === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
-                notionStatus === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
-                'bg-blue-50 text-blue-700 border border-blue-200'
+              <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border ${
+                notionStatus === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
+                notionStatus === 'error'   ? 'bg-red-50 text-red-700 border-red-200' :
+                'bg-blue-50 text-blue-700 border-blue-200'
               }`}>
-                {notionStatus === 'success' && <CheckCircle className="h-4 w-4" />}
-                {notionStatus === 'error' && <XCircle className="h-4 w-4" />}
-                {notionStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin" />}
+                {notionStatus === 'success' && <CheckCircle className="h-4 w-4 shrink-0" />}
+                {notionStatus === 'error'   && <XCircle className="h-4 w-4 shrink-0" />}
+                {notionStatus === 'loading' && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
                 {notionStatus === 'loading' ? 'Notionに追加中...' : notionMessage}
               </div>
             )}
@@ -287,7 +321,7 @@ export default function SoundChangeChunk({ onBack }: Props) {
               <button
                 onClick={handlePrev}
                 disabled={currentIndex <= 0}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-white border-2 border-gray-200 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 text-sm font-semibold rounded-xl transition-all duration-150"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-white border-2 border-gray-200 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 text-sm font-semibold rounded-xl transition-all"
               >
                 <ChevronLeft className="h-4 w-4" />
                 前へ
@@ -296,18 +330,22 @@ export default function SoundChangeChunk({ onBack }: Props) {
               <button
                 onClick={handleNext}
                 disabled={loading}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-white border-2 border-gray-200 hover:border-gray-400 disabled:opacity-40 text-gray-700 text-sm font-semibold rounded-xl transition-all duration-150"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-white border-2 border-gray-200 hover:border-gray-400 disabled:opacity-40 text-gray-700 text-sm font-semibold rounded-xl transition-all"
               >
                 次へ
                 <ChevronRight className="h-4 w-4" />
               </button>
+
+              <span className="text-sm font-bold text-gray-400 tabular-nums">
+                {positionInBatch} / {batchTotal}
+              </span>
 
               <div className="flex-1" />
 
               <button
                 onClick={handleNotionWrite}
                 disabled={notionStatus === 'loading' || notionStatus === 'success'}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all duration-150"
+                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all"
               >
                 <BookPlus className="h-4 w-4" />
                 Notionに追加
@@ -316,7 +354,6 @@ export default function SoundChangeChunk({ onBack }: Props) {
           </>
         )}
 
-        {/* Empty state */}
         {!loading && !current && !error && (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
             <div className="p-5 bg-blue-50 rounded-full mb-4">

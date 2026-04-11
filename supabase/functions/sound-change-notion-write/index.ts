@@ -16,6 +16,8 @@ interface Chunk {
 interface RequestBody {
   chunks: Chunk[];
   type: string;
+  sentence: string;
+  translation: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -50,7 +52,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: RequestBody = await req.json();
-    const { chunks, type } = body;
+    const { chunks, type, sentence, translation } = body;
 
     if (!chunks || chunks.length === 0 || !type) {
       return new Response(
@@ -79,19 +81,26 @@ Deno.serve(async (req: Request) => {
     const results: Array<{ success: boolean; original: string; error?: string }> = [];
 
     for (const chunk of chunks) {
-      const soundText = `${chunk.phonetic}　${chunk.rule}`;
-
       const payload = {
         parent: { database_id: db_id_chunk },
         properties: {
           Name: {
-            title: [{ text: { content: chunk.original } }],
+            title: [{ text: { content: type } }],
           },
           Status: {
             status: { name: "覚え中" },
           },
-          sound: {
-            rich_text: [{ text: { content: soundText } }],
+          genru: {
+            rich_text: [{ text: { content: "ai" } }],
+          },
+          ENG: {
+            rich_text: [{ text: { content: chunk.original } }],
+          },
+          "e.g.ENG": {
+            rich_text: [{ text: { content: sentence || "" } }],
+          },
+          "e.g.JPN": {
+            rich_text: [{ text: { content: translation || "" } }],
           },
         },
       };
