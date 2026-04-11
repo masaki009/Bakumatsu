@@ -175,7 +175,7 @@ export default function SoundChangeChunk({ onBack }: Props) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex flex-col">
 
-      {/* Header row */}
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           {onBack && (
@@ -189,25 +189,22 @@ export default function SoundChangeChunk({ onBack }: Props) {
           <span className="font-bold text-gray-900 text-lg">音変化チャンク</span>
         </div>
 
-        {/* Type chips row */}
-        <div className="max-w-3xl mx-auto px-4 pb-3 flex flex-wrap gap-2">
+        {/* Chips + Generate button on same row */}
+        <div className="max-w-3xl mx-auto px-4 pb-3 flex items-center gap-2 flex-wrap">
           {TYPES.map(t => (
             <button
               key={t}
               onClick={() => { setSelectedType(t); setNotionStatus('idle'); }}
-              className={`${chipBase} border ${selectedType === t ? TYPE_SELECTED[t] : TYPE_COLORS[t]}`}
+              className={`${chipBase} ${selectedType === t ? TYPE_SELECTED[t] + ' shadow-md scale-105' : TYPE_COLORS[t] + ' opacity-70 hover:opacity-100'}`}
             >
               {t}
             </button>
           ))}
-        </div>
-
-        {/* Generate button row */}
-        <div className="max-w-3xl mx-auto px-4 pb-3">
+          <div className="flex-1 min-w-[8px]" />
           <button
             onClick={fetchExamples}
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-all duration-150"
+            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-all duration-150 whitespace-nowrap"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
             例文を生成する
