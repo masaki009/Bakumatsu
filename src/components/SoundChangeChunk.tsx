@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Zap, ChevronRight, ChevronLeft, BookPlus, CheckCircle, XCircle, Loader2, Volume2, Film } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { ArrowLeft, Zap, ChevronRight, ChevronLeft, Loader2, Volume2, Film } from 'lucide-react';
 
 type SoundChangeType = '脱落・弱化' | '同化' | 'リンキング' | '短縮形' | 'ミックス';
 
@@ -59,8 +58,6 @@ export default function SoundChangeChunk({ onBack }: Props) {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notionStatus, setNotionStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [notionMessage, setNotionMessage] = useState('');
   const [showTranslation, setShowTranslation] = useState(false);
 
   const current = currentIndex >= 0 ? history[currentIndex] : null;
@@ -71,12 +68,13 @@ export default function SoundChangeChunk({ onBack }: Props) {
   const fetchExamples = async () => {
     setLoading(true);
     setError(null);
-    setNotionStatus('idle');
     setShowTranslation(false);
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const usedSentences = history.map(e => e.sentence);
 
       const res = await fetch(`${supabaseUrl}/functions/v1/sound-change-quiz`, {
         method: 'POST',
@@ -85,7 +83,7 @@ export default function SoundChangeChunk({ onBack }: Props) {
           'Authorization': `Bearer ${supabaseAnonKey}`,
           'apikey': supabaseAnonKey,
         },
-        body: JSON.stringify({ type: selectedType }),
+        body: JSON.stringify({ type: selectedType, usedSentences }),
       });
 
       const data = await res.json();
@@ -111,7 +109,6 @@ export default function SoundChangeChunk({ onBack }: Props) {
   };
 
   const handleNext = () => {
-    setNotionStatus('idle');
     setShowTranslation(false);
     if (currentIndex < history.length - 1) {
       setCurrentIndex(i => i + 1);
@@ -122,51 +119,8 @@ export default function SoundChangeChunk({ onBack }: Props) {
 
   const handlePrev = () => {
     if (currentIndex > 0) {
-      setNotionStatus('idle');
       setShowTranslation(false);
       setCurrentIndex(i => i - 1);
-    }
-  };
-
-  const handleNotionWrite = async () => {
-    if (!current) return;
-    setNotionStatus('loading');
-    setNotionMessage('');
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('ログインが必要です');
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const res = await fetch(`${supabaseUrl}/functions/v1/sound-change-notion-write`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          chunks: current.chunks,
-          type: current.type,
-          sentence: current.sentence,
-          translation: current.translation,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || 'Notionへの書き込みに失敗しました');
-
-      if (data.anySuccess) {
-        const count = data.results.filter((r: { success: boolean }) => r.success).length;
-        setNotionStatus('success');
-        setNotionMessage(`${count}件のチャンクをNotionに追加しました`);
-      } else {
-        const firstError = data.results?.find((r: { success: boolean; error?: string }) => !r.success)?.error;
-        throw new Error(firstError || data.error || 'Notionへの書き込みに失敗しました');
-      }
-    } catch (err) {
-      setNotionStatus('error');
-      setNotionMessage(err instanceof Error ? err.message : 'Notionへの書き込みに失敗しました');
     }
   };
 
@@ -303,20 +257,6 @@ export default function SoundChangeChunk({ onBack }: Props) {
               <p className="px-6 py-4 text-sm text-slate-700 leading-relaxed">{current.miniLecture}</p>
             </div>
 
-            {/* Notion feedback */}
-            {notionStatus !== 'idle' && (
-              <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border ${
-                notionStatus === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-                notionStatus === 'error'   ? 'bg-red-50 text-red-700 border-red-200' :
-                'bg-blue-50 text-blue-700 border-blue-200'
-              }`}>
-                {notionStatus === 'success' && <CheckCircle className="h-4 w-4 shrink-0" />}
-                {notionStatus === 'error'   && <XCircle className="h-4 w-4 shrink-0" />}
-                {notionStatus === 'loading' && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-                {notionStatus === 'loading' ? 'Notionに追加中...' : notionMessage}
-              </div>
-            )}
-
             {/* Navigation */}
             <div className="flex items-center gap-3 pt-2">
               <button
@@ -340,17 +280,6 @@ export default function SoundChangeChunk({ onBack }: Props) {
               <span className="text-sm font-bold text-gray-400 tabular-nums">
                 {positionInBatch} / {batchTotal}
               </span>
-
-              <div className="flex-1" />
-
-              <button
-                onClick={handleNotionWrite}
-                disabled={notionStatus === 'loading' || notionStatus === 'success'}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all"
-              >
-                <BookPlus className="h-4 w-4" />
-                Notionに追加
-              </button>
             </div>
           </>
         )}

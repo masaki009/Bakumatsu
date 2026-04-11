@@ -8,6 +8,41 @@ const corsHeaders = {
 
 interface RequestBody {
   type: string;
+  usedSentences?: string[];
+}
+
+const TOPIC_POOLS: string[] = [
+  "daily conversation at home",
+  "workplace or office talk",
+  "ordering food at a restaurant",
+  "shopping or bargaining",
+  "phone call or texting",
+  "sports and exercise",
+  "travel and transportation",
+  "school or university life",
+  "watching movies or TV",
+  "medical or health situations",
+  "friendship or romance",
+  "arguments or apologies",
+  "plans and invitations",
+  "complaining or venting",
+  "news and current events",
+  "technology and gadgets",
+  "cooking or food talk",
+  "children or family life",
+  "partying or socializing",
+  "crime or mystery drama",
+];
+
+function pickTopics(seed: number, count: number): string[] {
+  const shuffled = [...TOPIC_POOLS];
+  let s = seed;
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, count);
 }
 
 Deno.serve(async (req: Request) => {
@@ -16,7 +51,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { type }: RequestBody = await req.json();
+    const { type, usedSentences = [] }: RequestBody = await req.json();
 
     if (!type) {
       return new Response(
@@ -43,12 +78,23 @@ Deno.serve(async (req: Request) => {
 
     const typeDescription = typeDescriptions[type] || type;
 
-    const prompt = `Generate 3 English example sentences demonstrating the following sound change type: ${type} (${typeDescription}).
+    const seed = Date.now();
+    const topics = pickTopics(seed, 3);
 
+    const avoidSection = usedSentences.length > 0
+      ? `\nAVOID these sentences (already used — do NOT reuse or closely paraphrase them):\n${usedSentences.slice(-30).map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+      : "";
+
+    const topicSection = `\nEach of the 3 examples should be set in a DIFFERENT context. Use these 3 topics as loose inspiration (one per example):\n1. ${topics[0]}\n2. ${topics[1]}\n3. ${topics[2]}\n`;
+
+    const prompt = `Generate 3 English example sentences demonstrating the following sound change type: ${type} (${typeDescription}).
+${avoidSection}${topicSection}
 Rules:
 - Prefer real movie or TV drama dialogue whenever possible. If you know the exact source, name it.
 - Each sentence should clearly illustrate the specified sound change.
 - For ミックス, include at least 2 different sound change types per sentence.
+- Make the sentences varied in length, register (formal/casual), and speaker situation.
+- Do NOT repeat vocabulary or phrasing patterns across the 3 examples.
 
 Return ONLY valid JSON with no markdown fences:
 {
@@ -86,7 +132,8 @@ Important:
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 3000,
-        system: "You are an expert English phonetics and pronunciation teacher specializing in connected speech and sound changes. Generate authentic examples from real media when possible. Respond with valid JSON only, no markdown.",
+        temperature: 1,
+        system: "You are an expert English phonetics and pronunciation teacher specializing in connected speech and sound changes. Generate authentic, highly varied examples from real media when possible. Never repeat examples from previous sessions. Respond with valid JSON only, no markdown.",
         messages: [{ role: "user", content: prompt }],
       }),
     });
