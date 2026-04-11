@@ -115,7 +115,9 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
       const items: AudioItem[] = responseData.items || [];
 
       if (items.length === 0) {
-        setSourceError('該当するデータが見つかりませんでした。');
+        const shuffled = [...GITHUB_ITEMS].sort(() => Math.random() - 0.5);
+        setSelectedSource(sourceType);
+        setAvailableItems(shuffled);
         setIsLoadingSource(false);
         return;
       }
