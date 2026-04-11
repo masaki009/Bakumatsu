@@ -50,6 +50,7 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status") || "完璧";
+    const debug = url.searchParams.get("debug") === "1";
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: notionSettings, error: settingsError } = await adminClient
@@ -109,8 +110,11 @@ Deno.serve(async (req: Request) => {
     const allItems = (data.results as NotionPage[]).map((page) => {
       const properties = page.properties;
 
-      const statusProp = properties.status || properties.Status;
-      const pageStatus = getStatus(statusProp);
+      const statusKey = Object.keys(properties).find(
+        k => k.toLowerCase() === "status"
+      );
+      const statusProp = statusKey ? properties[statusKey] : undefined;
+      const pageStatus = statusProp ? getStatus(statusProp) : "";
 
       const filesKey = Object.keys(properties).find(
         k => k.toLowerCase().replace(/[\s&]/g, "") === "filesmedia"
@@ -136,8 +140,34 @@ Deno.serve(async (req: Request) => {
         engText = (properties[engKey].rich_text as Array<{ plain_text: string }>)?.[0]?.plain_text || "";
       }
 
-      return { audioUrl, engText, pageStatus };
+      return { audioUrl, engText, pageStatus, statusKey: statusKey || "" };
     });
+
+    if (debug) {
+      const firstPageKeys = data.results.length > 0
+        ? Object.entries((data.results[0] as NotionPage).properties).map(([k, v]) => ({
+            key: k,
+            type: (v as NotionProperty).type,
+          }))
+        : [];
+
+      const statusCounts: Record<string, number> = {};
+      allItems.forEach(item => {
+        const s = item.pageStatus || "(empty)";
+        statusCounts[s] = (statusCounts[s] || 0) + 1;
+      });
+
+      return new Response(
+        JSON.stringify({
+          totalPages: data.results.length,
+          propertyKeys: firstPageKeys,
+          statusDistribution: statusCounts,
+          statusKeyFound: allItems[0]?.statusKey || "(not found)",
+          requestedStatus: status,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const items = allItems
       .filter(item => item.pageStatus === status && item.audioUrl !== "")
