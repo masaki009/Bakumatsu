@@ -82,12 +82,19 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
     setAvailableItems(shuffled);
   };
 
+  const getValidSession = async () => {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) return refreshed.session;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  };
+
   const loadDebugInfo = async () => {
     setIsLoadingDebug(true);
     setDebugInfo(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const session = await getValidSession();
+      if (!session) { setDebugInfo({ error: 'セッションが見つかりません。再ログインしてください。' }); return; }
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audio-memory-source?debug=1&status=覚え中`,
         { headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' } }
@@ -108,7 +115,7 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
     setAvailableItems([]);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getValidSession();
       if (!session) {
         setSourceError('ログインが必要です。');
         setIsLoadingSource(false);
