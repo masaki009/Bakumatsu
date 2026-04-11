@@ -152,7 +152,7 @@ export default function SoundChangeChunk({ onBack }: Props) {
           {TYPES.map(t => (
             <button
               key={t}
-              onClick={() => { setSelectedType(t); setNotionStatus('idle'); }}
+              onClick={() => setSelectedType(t)}
               className={`${chipBase} ${selectedType === t ? TYPE_SELECTED[t] + ' shadow-md scale-105' : TYPE_COLORS[t] + ' opacity-70 hover:opacity-100'}`}
             >
               {t}
@@ -205,10 +205,6 @@ export default function SoundChangeChunk({ onBack }: Props) {
 
                 {/* Sentence */}
                 <p className="text-2xl font-bold text-gray-900 leading-relaxed mb-1">{current.sentence}</p>
-                {current.spokenForm && (
-                  <p className="text-sm text-blue-500 font-medium mb-3">▶ {current.spokenForm}</p>
-                )}
-
                 {/* Translation toggle + audio */}
                 <div className="flex items-center gap-3 mt-3">
                   <button
