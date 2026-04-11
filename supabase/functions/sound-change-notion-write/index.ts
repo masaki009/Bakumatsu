@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
             status: { name: "覚え中" },
           },
           genru: {
-            rich_text: [{ text: { content: "ai" } }],
+            select: { name: "ai" },
           },
           ENG: {
             rich_text: [{ text: { content: chunk.original } }],

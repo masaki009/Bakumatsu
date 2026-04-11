@@ -180,14 +180,17 @@ export default function SoundChangeChunk({ onBack }: Props) {
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           {onBack && (
-            <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
+            <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors shrink-0">
+              <ArrowLeft className="h-4 w-4" />
+              戻る
             </button>
           )}
-          <div className="p-1.5 bg-blue-100 rounded-lg">
-            <Volume2 className="h-5 w-5 text-blue-600" />
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-blue-100 rounded-lg">
+              <Volume2 className="h-5 w-5 text-blue-600" />
+            </div>
+            <span className="font-bold text-gray-900 text-lg">音変化チャンク</span>
           </div>
-          <span className="font-bold text-gray-900 text-lg">音変化チャンク</span>
         </div>
 
         {/* Chips + Generate button on same row */}
