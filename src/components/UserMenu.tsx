@@ -285,7 +285,7 @@ export default function UserMenu() {
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <span className="text-3xl sm:text-4xl flex-shrink-0">🐣</span>
               <div className="min-w-0 flex-1">
-                <h1 className="text-sm sm:text-2xl font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">英語のたまご</h1>
+                <h1 className="text-sm sm:text-2xl font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">幕末英語術　ばくまっち</h1>
                 <p className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">英語学習併走スタイル</p>
               </div>
             </div>
