@@ -161,7 +161,8 @@ export default function SoundChangeChunk({ onBack }: Props) {
         setNotionStatus('success');
         setNotionMessage(`${count}件のチャンクをNotionに追加しました`);
       } else {
-        throw new Error('Notionへの書き込みに失敗しました');
+        const firstError = data.results?.find((r: { success: boolean; error?: string }) => !r.success)?.error;
+        throw new Error(firstError || data.error || 'Notionへの書き込みに失敗しました');
       }
     } catch (err) {
       setNotionStatus('error');

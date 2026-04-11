@@ -118,8 +118,16 @@ Deno.serve(async (req: Request) => {
       if (notionRes.ok) {
         results.push({ success: true, original: chunk.original });
       } else {
-        const errData = await notionRes.json();
-        results.push({ success: false, original: chunk.original, error: errData.message || "Unknown error" });
+        let errDetail = `HTTP ${notionRes.status}`;
+        try {
+          const errData = await notionRes.json();
+          errDetail = errData.message
+            ? `${errData.code ? errData.code + ': ' : ''}${errData.message}`
+            : JSON.stringify(errData);
+        } catch (_) {
+          errDetail = `HTTP ${notionRes.status} (レスポンス解析失敗)`;
+        }
+        results.push({ success: false, original: chunk.original, error: errDetail });
       }
     }
 
