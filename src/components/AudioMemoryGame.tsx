@@ -1,46 +1,40 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, RotateCcw, Volume2 } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Volume2, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+type SourceType = 'notion_perfect' | 'notion_review' | 'notion_learning' | 'github' | null;
 
 interface AudioMemoryGameProps {
   onBack: () => void;
 }
 
+interface AudioItem {
+  audioUrl: string;
+  engText: string;
+}
+
 interface Card {
   id: number;
   audioUrl: string;
+  engText: string;
   colorClass: string;
   isFlipped: boolean;
   isMatched: boolean;
 }
 
-const AUDIO_URLS = [
-  'https://raw.githubusercontent.com/masaki009/test123/main/1.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/2.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/3.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/4.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/5.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/6.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/7.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/8.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/9.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/10.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/11.mp3',
-  'https://raw.githubusercontent.com/masaki009/test123/main/13.mp3'
-];
-
-const ENGLISH_TEXTS = [
-'Are you alright？',
-'May I help you？',
-'Are you lost？',
-'Where are you from？',
-'Is it your first time in Japan？',
-'How long are you staying in Japan?',
-'Where are staying?',
-'Please enjoy your trip in Japan.',
-'Have you tried Monjayaki?',
-'Do you know where I can find ATM?',
-'Go down the street.',
-'Could you tell me how to get Tokyo statio from here?'
+const GITHUB_ITEMS: AudioItem[] = [
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/1.mp3', engText: 'Are you alright？' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/2.mp3', engText: 'May I help you？' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/3.mp3', engText: 'Are you lost？' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/4.mp3', engText: 'Where are you from？' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/5.mp3', engText: 'Is it your first time in Japan？' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/6.mp3', engText: 'How long are you staying in Japan?' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/7.mp3', engText: 'Where are staying?' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/8.mp3', engText: 'Please enjoy your trip in Japan.' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/9.mp3', engText: 'Have you tried Monjayaki?' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/10.mp3', engText: 'Do you know where I can find ATM?' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/11.mp3', engText: 'Go down the street.' },
+  { audioUrl: 'https://raw.githubusercontent.com/masaki009/test123/main/13.mp3', engText: 'Could you tell me how to get Tokyo station from here?' },
 ];
 
 const CARD_COLORS = [
@@ -48,17 +42,18 @@ const CARD_COLORS = [
   'bg-gradient-to-br from-green-400 to-green-600',
   'bg-gradient-to-br from-pink-400 to-pink-600',
   'bg-gradient-to-br from-orange-400 to-orange-600',
-  'bg-gradient-to-br from-purple-400 to-purple-600',
   'bg-gradient-to-br from-yellow-400 to-yellow-600',
   'bg-gradient-to-br from-red-400 to-red-600',
   'bg-gradient-to-br from-cyan-400 to-cyan-600',
   'bg-gradient-to-br from-teal-400 to-teal-600',
-  'bg-gradient-to-br from-lime-400 to-lime-600',
-  'bg-gradient-to-br from-rose-400 to-rose-600',
-  'bg-gradient-to-br from-sky-400 to-sky-600',
 ];
 
 export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
+  const [selectedSource, setSelectedSource] = useState<SourceType>(null);
+  const [availableItems, setAvailableItems] = useState<AudioItem[]>([]);
+  const [isLoadingSource, setIsLoadingSource] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
@@ -78,20 +73,73 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
   const popupTimeoutRef = useRef<number | null>(null);
   const completionTimeoutRef = useRef<number | null>(null);
 
+  const selectGithubSource = () => {
+    setSourceError(null);
+    setSelectedSource('github');
+    const shuffled = [...GITHUB_ITEMS].sort(() => Math.random() - 0.5);
+    setAvailableItems(shuffled);
+  };
+
+  const loadNotionSource = async (status: string, sourceType: SourceType) => {
+    setIsLoadingSource(true);
+    setSourceError(null);
+    setSelectedSource(null);
+    setAvailableItems([]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSourceError('ログインが必要です。');
+        setIsLoadingSource(false);
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audio-memory-source?status=${encodeURIComponent(status)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const responseData = await response.json().catch(() => ({ error: 'レスポンスの解析に失敗しました' }));
+
+      if (!response.ok) {
+        setSourceError(responseData.error || 'データの取得に失敗しました。');
+        setIsLoadingSource(false);
+        return;
+      }
+
+      const items: AudioItem[] = responseData.items || [];
+
+      if (items.length === 0) {
+        setSourceError('該当するデータが見つかりませんでした。');
+        setIsLoadingSource(false);
+        return;
+      }
+
+      setSelectedSource(sourceType);
+      setAvailableItems(items);
+    } catch (error) {
+      console.error('Source load error:', error);
+      setSourceError('データの取得中にエラーが発生しました。');
+    } finally {
+      setIsLoadingSource(false);
+    }
+  };
+
   const playFlipSound = () => {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
     oscillator.frequency.value = 800;
     oscillator.type = 'sine';
-
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.1);
   };
@@ -100,19 +148,14 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
     oscillator.type = 'sine';
-
     oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
     oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
     oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
-
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.3);
   };
@@ -121,16 +164,12 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
     oscillator.type = 'sawtooth';
     oscillator.frequency.value = 200;
-
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.2);
   };
@@ -141,7 +180,6 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       await audio.play();
@@ -151,26 +189,24 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
   };
 
   const shuffleAndDeal = (pairCount: number) => {
-    const selectedAudios = AUDIO_URLS.slice(0, pairCount);
+    let items = [...availableItems];
+
+    if (items.length < pairCount) {
+      const existingUrls = new Set(items.map(i => i.audioUrl));
+      const extras = [...GITHUB_ITEMS]
+        .filter(i => !existingUrls.has(i.audioUrl))
+        .sort(() => Math.random() - 0.5);
+      items = [...items, ...extras].slice(0, pairCount);
+    } else {
+      items = items.slice(0, pairCount);
+    }
 
     const cardPairs: Card[] = [];
-    selectedAudios.forEach((audioUrl, index) => {
+    items.forEach((item, index) => {
       const colorClass = CARD_COLORS[index % CARD_COLORS.length];
       cardPairs.push(
-        {
-          id: index * 2,
-          audioUrl,
-          colorClass,
-          isFlipped: false,
-          isMatched: false,
-        },
-        {
-          id: index * 2 + 1,
-          audioUrl,
-          colorClass,
-          isFlipped: false,
-          isMatched: false,
-        }
+        { id: index * 2, audioUrl: item.audioUrl, engText: item.engText, colorClass, isFlipped: false, isMatched: false },
+        { id: index * 2 + 1, audioUrl: item.audioUrl, engText: item.engText, colorClass, isFlipped: false, isMatched: false }
       );
     });
 
@@ -247,9 +283,8 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
           setFlippedCards([]);
           setIsChecking(false);
 
-          const audioIndex = AUDIO_URLS.indexOf(firstCard.audioUrl);
-          if (audioIndex !== -1 && ENGLISH_TEXTS[audioIndex]) {
-            setPopupText(ENGLISH_TEXTS[audioIndex]);
+          if (firstCard?.engText) {
+            setPopupText(firstCard.engText);
             setShowPopup(true);
 
             if (popupTimeoutRef.current) {
@@ -303,6 +338,9 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
     setPopupText(null);
     setShowPopup(false);
     setShowCompletionModal(false);
+    setSelectedSource(null);
+    setAvailableItems([]);
+    setSourceError(null);
     if (timerRef.current) {
       cancelAnimationFrame(timerRef.current);
       timerRef.current = null;
@@ -344,12 +382,8 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
 
   useEffect(() => {
     return () => {
-      if (popupTimeoutRef.current) {
-        clearTimeout(popupTimeoutRef.current);
-      }
-      if (completionTimeoutRef.current) {
-        clearTimeout(completionTimeoutRef.current);
-      }
+      if (popupTimeoutRef.current) clearTimeout(popupTimeoutRef.current);
+      if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
     };
   }, []);
 
@@ -359,8 +393,15 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const sourceLabel: Record<NonNullable<SourceType>, string> = {
+    notion_perfect: 'Notion：完璧',
+    notion_review: 'Notion：要復習',
+    notion_learning: 'Notion：覚え中',
+    github: 'センター',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-cyan-50">
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -409,30 +450,105 @@ export default function AudioMemoryGame({ onBack }: AudioMemoryGameProps) {
 
           <div className="flex-1">
             {!gameStarted && cards.length === 0 ? (
-              <div className="flex justify-end">
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => shuffleAndDeal(4)}
-                    disabled={isDealing}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-10 py-4 rounded-xl text-xl font-bold shadow-xl transition-all transform hover:scale-105 disabled:transform-none"
-                  >
-                    {isDealing ? 'ディール中...' : 'シャッフル8枚'}
-                  </button>
-                  <button
-                    onClick={() => shuffleAndDeal(6)}
-                    disabled={isDealing}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-10 py-4 rounded-xl text-xl font-bold shadow-xl transition-all transform hover:scale-105 disabled:transform-none"
-                  >
-                    {isDealing ? 'ディール中...' : 'シャッフル12枚'}
-                  </button>
-                  <button
-                    onClick={() => shuffleAndDeal(8)}
-                    disabled={isDealing}
-                    className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-10 py-4 rounded-xl text-xl font-bold shadow-xl transition-all transform hover:scale-105 disabled:transform-none"
-                  >
-                    {isDealing ? 'ディール中...' : 'シャッフル16枚'}
-                  </button>
+              <div className="flex flex-col gap-6">
+                <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+                  <h2 className="text-base font-semibold text-gray-700 mb-4">データソースを選ぶ</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => loadNotionSource('完璧', 'notion_perfect')}
+                      disabled={isLoadingSource}
+                      className={`px-5 py-3 rounded-xl text-sm font-bold shadow transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-60 ${
+                        selectedSource === 'notion_perfect'
+                          ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white ring-2 ring-amber-400 ring-offset-1'
+                          : 'bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-white'
+                      }`}
+                    >
+                      Notion：完璧
+                    </button>
+                    <button
+                      onClick={() => loadNotionSource('要復習', 'notion_review')}
+                      disabled={isLoadingSource}
+                      className={`px-5 py-3 rounded-xl text-sm font-bold shadow transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-60 ${
+                        selectedSource === 'notion_review'
+                          ? 'bg-gradient-to-r from-blue-500 to-sky-500 text-white ring-2 ring-blue-400 ring-offset-1'
+                          : 'bg-gradient-to-r from-blue-400 to-sky-400 hover:from-blue-500 hover:to-sky-500 text-white'
+                      }`}
+                    >
+                      Notion：要復習
+                    </button>
+                    <button
+                      onClick={() => loadNotionSource('覚え中', 'notion_learning')}
+                      disabled={isLoadingSource}
+                      className={`px-5 py-3 rounded-xl text-sm font-bold shadow transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-60 ${
+                        selectedSource === 'notion_learning'
+                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white ring-2 ring-teal-400 ring-offset-1'
+                          : 'bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-500 hover:to-cyan-500 text-white'
+                      }`}
+                    >
+                      Notion：覚え中
+                    </button>
+                    <button
+                      onClick={selectGithubSource}
+                      disabled={isLoadingSource}
+                      className={`px-5 py-3 rounded-xl text-sm font-bold shadow transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-60 ${
+                        selectedSource === 'github'
+                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white ring-2 ring-green-400 ring-offset-1'
+                          : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white'
+                      }`}
+                    >
+                      センター
+                    </button>
+                  </div>
+
+                  {isLoadingSource && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 size={16} className="animate-spin" />
+                      データを取得中...
+                    </div>
+                  )}
+
+                  {sourceError && (
+                    <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      {sourceError}
+                    </div>
+                  )}
+
+                  {selectedSource && availableItems.length > 0 && !isLoadingSource && (
+                    <div className="mt-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                      <span className="font-semibold">{sourceLabel[selectedSource]}</span>
+                      {' '}を選択中 — {availableItems.length}件取得
+                    </div>
+                  )}
                 </div>
+
+                {selectedSource && availableItems.length > 0 && !isLoadingSource && (
+                  <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+                    <h2 className="text-base font-semibold text-gray-700 mb-4">難易度を選ぶ（配るカード枚数）</h2>
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={() => shuffleAndDeal(4)}
+                        disabled={isDealing}
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-10 py-4 rounded-xl text-xl font-bold shadow-xl transition-all transform hover:scale-105 disabled:transform-none"
+                      >
+                        {isDealing ? 'ディール中...' : '8枚（4ペア）'}
+                      </button>
+                      <button
+                        onClick={() => shuffleAndDeal(6)}
+                        disabled={isDealing}
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-10 py-4 rounded-xl text-xl font-bold shadow-xl transition-all transform hover:scale-105 disabled:transform-none"
+                      >
+                        {isDealing ? 'ディール中...' : '12枚（6ペア）'}
+                      </button>
+                      <button
+                        onClick={() => shuffleAndDeal(8)}
+                        disabled={isDealing}
+                        className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-10 py-4 rounded-xl text-xl font-bold shadow-xl transition-all transform hover:scale-105 disabled:transform-none"
+                      >
+                        {isDealing ? 'ディール中...' : '16枚（8ペア）'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className={`grid gap-2 ${
