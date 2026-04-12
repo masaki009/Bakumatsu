@@ -28,6 +28,7 @@ import WordOrderQuiz from './WordOrderQuiz';
 import SlashReading from './SlashReading';
 import JapaneseToEnglishProcess from './JapaneseToEnglishProcess';
 import SoundChangeChunk from './SoundChangeChunk';
+import SoundChangeDictation from './SoundChangeDictation';
 import ChallengeMenu from './ChallengeMenu';
 import { useGameData } from '../hooks/useGameData';
 
@@ -75,6 +76,7 @@ export default function UserMenu() {
         { id: 'listening-practice', label: 'リスニング練習', icon: Headphones },
         { id: 'audio-memory', label: '音声神経衰弱', icon: Music, notionBadge: 'arrow' },
         { id: 'sound-change-chunk', label: '音変化チャンク', icon: Volume2 },
+        { id: 'sound-change-dictation', label: '音変化チャンクディクテーション', icon: Mic },
         { id: 'chunk', label: 'チャンク　直接アクセス', icon: Database, notionBadge: 'plain' },
       ],
     },
@@ -275,6 +277,10 @@ export default function UserMenu() {
 
   if (selectedSubMenu === 'sound-change-chunk') {
     return <SoundChangeChunk onBack={handleBackToSubMenu} />;
+  }
+
+  if (selectedSubMenu === 'sound-change-dictation') {
+    return <SoundChangeDictation onBack={handleBackToSubMenu} />;
   }
 
   return (
