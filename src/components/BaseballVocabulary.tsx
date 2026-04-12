@@ -419,7 +419,7 @@ export default function BaseballVocabulary({ onBack }: Props) {
                   onClick={loadBuiltinSource}
                   className="py-5 px-4 rounded-xl font-bold text-white text-lg bg-green-500 hover:bg-green-600 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
                 >
-                  内蔵データ
+                  センター
                 </button>
               </div>
             )}
