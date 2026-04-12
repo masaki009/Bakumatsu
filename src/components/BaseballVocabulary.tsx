@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft, RotateCcw, ArrowRight as ArrowRightIcon } from 'lucide-react';
+import { ArrowLeft, RotateCcw, ArrowRight as ArrowRightIcon, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Word {
   en: string;
@@ -65,16 +66,24 @@ const vocabularyDatabase: Word[] = [
   { en: "attribute", ja: "～のせいにする", example: "He attributes his success to hard work." },
 ];
 
-type GameState = 'select-mode' | 'ready' | 'pitching' | 'showing-word' | 'showing-example' | 'showing-answer' | 'showing-result' | 'game-over';
+type GameState = 'select-source' | 'select-mode' | 'ready' | 'pitching' | 'showing-word' | 'showing-example' | 'showing-answer' | 'showing-result' | 'game-over';
 type QuizMode = 'en-ja' | 'ja-en';
+type SourceType = 'notion_perfect' | 'notion_review' | 'notion_learning' | 'builtin' | null;
 
 interface Props {
   onBack: () => void;
 }
 
 export default function BaseballVocabulary({ onBack }: Props) {
-  const [gameState, setGameState] = useState<GameState>('select-mode');
+  const [gameState, setGameState] = useState<GameState>('select-source');
   const [mode, setMode] = useState<QuizMode>('en-ja');
+  const [sourceType, setSourceType] = useState<SourceType>(null);
+  const [activeWords, setActiveWords] = useState<Word[]>([]);
+  const [isLoadingSource, setIsLoadingSource] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
+  const [isLoadingDebug, setIsLoadingDebug] = useState(false);
+
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
   const [correct, setCorrect] = useState(0);
   const [incorrect, setIncorrect] = useState(0);
@@ -88,7 +97,7 @@ export default function BaseballVocabulary({ onBack }: Props) {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -98,52 +107,40 @@ export default function BaseballVocabulary({ onBack }: Props) {
 
   const playSound = useCallback((type: 'pitch' | 'hit' | 'correct' | 'incorrect' | 'end') => {
     if (!audioContextRef.current) return;
-
     const ctx = audioContextRef.current;
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
-
     const now = ctx.currentTime;
-
     switch (type) {
       case 'pitch':
         oscillator.frequency.setValueAtTime(200, now);
         oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.1);
         gainNode.gain.setValueAtTime(0.3, now);
         gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        oscillator.start(now);
-        oscillator.stop(now + 0.1);
+        oscillator.start(now); oscillator.stop(now + 0.1);
         break;
-
       case 'hit':
         oscillator.frequency.setValueAtTime(800, now);
         gainNode.gain.setValueAtTime(0.5, now);
         gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        oscillator.start(now);
-        oscillator.stop(now + 0.15);
+        oscillator.start(now); oscillator.stop(now + 0.15);
         break;
-
       case 'correct':
         oscillator.frequency.setValueAtTime(523, now);
         oscillator.frequency.setValueAtTime(659, now + 0.1);
         gainNode.gain.setValueAtTime(0.3, now);
         gainNode.gain.setValueAtTime(0.3, now + 0.1);
         gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        oscillator.start(now);
-        oscillator.stop(now + 0.25);
+        oscillator.start(now); oscillator.stop(now + 0.25);
         break;
-
       case 'incorrect':
         oscillator.frequency.setValueAtTime(200, now);
         gainNode.gain.setValueAtTime(0.3, now);
         gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        oscillator.start(now);
-        oscillator.stop(now + 0.3);
+        oscillator.start(now); oscillator.stop(now + 0.3);
         break;
-
       case 'end':
         oscillator.frequency.setValueAtTime(523, now);
         oscillator.frequency.setValueAtTime(659, now + 0.15);
@@ -152,42 +149,108 @@ export default function BaseballVocabulary({ onBack }: Props) {
         gainNode.gain.setValueAtTime(0.3, now + 0.15);
         gainNode.gain.setValueAtTime(0.3, now + 0.3);
         gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        oscillator.start(now);
-        oscillator.stop(now + 0.5);
+        oscillator.start(now); oscillator.stop(now + 0.5);
         break;
     }
   }, []);
 
+  const getValidSession = async () => {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) return refreshed.session;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
+  };
+
+  const loadNotionSource = async (status: string, type: SourceType) => {
+    setIsLoadingSource(true);
+    setSourceError(null);
+    setDebugInfo(null);
+    try {
+      const session = await getValidSession();
+      if (!session) {
+        setSourceError('ログインが必要です。');
+        setIsLoadingSource(false);
+        return;
+      }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vocab-source?status=${encodeURIComponent(status)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const responseData = await response.json().catch(() => ({ error: 'レスポンスの解析に失敗しました' }));
+      if (!response.ok) {
+        setSourceError(responseData.error || 'データの取得に失敗しました。');
+        setIsLoadingSource(false);
+        return;
+      }
+      const items: Word[] = responseData.items || [];
+      if (items.length === 0) {
+        const shuffled = [...vocabularyDatabase].sort(() => Math.random() - 0.5).slice(0, 10);
+        setSourceType(type);
+        setActiveWords(shuffled);
+        setGameState('select-mode');
+        setIsLoadingSource(false);
+        return;
+      }
+      setSourceType(type);
+      setActiveWords(items);
+      setGameState('select-mode');
+    } catch (error) {
+      console.error('Source load error:', error);
+      setSourceError('データの取得中にエラーが発生しました。');
+    } finally {
+      setIsLoadingSource(false);
+    }
+  };
+
+  const loadBuiltinSource = () => {
+    const shuffled = [...vocabularyDatabase].sort(() => Math.random() - 0.5).slice(0, 10);
+    setSourceType('builtin');
+    setActiveWords(shuffled);
+    setSourceError(null);
+    setDebugInfo(null);
+    setGameState('select-mode');
+  };
+
+  const loadDebugInfo = async () => {
+    setIsLoadingDebug(true);
+    setDebugInfo(null);
+    try {
+      const session = await getValidSession();
+      if (!session) { setDebugInfo({ error: 'セッションが見つかりません。再ログインしてください。' }); return; }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vocab-source?debug=1&status=覚え中`,
+        { headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' } }
+      );
+      const data = await response.json();
+      setDebugInfo(data);
+    } catch (e) {
+      setDebugInfo({ error: String(e) });
+    } finally {
+      setIsLoadingDebug(false);
+    }
+  };
+
   const getRandomWord = useCallback(() => {
-    const availableWords = vocabularyDatabase.filter(
-      word => !usedWords.some(used => used.en === word.en)
-    );
-    if (availableWords.length === 0) return null;
-    return availableWords[Math.floor(Math.random() * availableWords.length)];
-  }, [usedWords]);
+    const available = activeWords.filter(w => !usedWords.some(u => u.en === w.en));
+    if (available.length === 0) return null;
+    return available[Math.floor(Math.random() * available.length)];
+  }, [activeWords, usedWords]);
 
   const handlePitch = useCallback(() => {
     if (gameState !== 'ready') return;
-
     playSound('pitch');
     setGameState('pitching');
     setBallPosition({ x: 50, y: 100, scale: 1 });
-
-    setTimeout(() => {
-      setBallPosition({ x: 50, y: 20, scale: 0.3 });
-    }, 50);
-
-    setTimeout(() => {
-      setBatterSwing(true);
-      playSound('hit');
-    }, 600);
-
+    setTimeout(() => setBallPosition({ x: 50, y: 20, scale: 0.3 }), 50);
+    setTimeout(() => { setBatterSwing(true); playSound('hit'); }, 600);
     setTimeout(() => {
       const word = getRandomWord();
-      if (word) {
-        setCurrentWord(word);
-        setUsedWords(prev => [...prev, word]);
-      }
+      if (word) { setCurrentWord(word); setUsedWords(prev => [...prev, word]); }
       setGameState('showing-word');
       setBatterSwing(false);
       setBallPosition({ x: 50, y: 100, scale: 1 });
@@ -196,25 +259,21 @@ export default function BaseballVocabulary({ onBack }: Props) {
 
   const handleShowExample = useCallback(() => {
     if (gameState !== 'showing-word' || !currentWord) return;
-
     setGameState('showing-example');
   }, [gameState, currentWord]);
 
   const handleShowAnswer = useCallback(() => {
     if ((gameState !== 'showing-word' && gameState !== 'showing-example') || !currentWord) return;
-
     setShowMeaning(true);
     setGameState('showing-answer');
   }, [gameState, currentWord]);
 
   const handleAnswer = useCallback((knowIt: boolean) => {
     if (gameState !== 'showing-answer' || !currentWord) return;
-
     setIsCorrect(knowIt);
     setGameState('showing-result');
     setBatterSwing(true);
     playSound('hit');
-
     if (knowIt) {
       setCorrect(prev => prev + 1);
       playSound('correct');
@@ -227,22 +286,15 @@ export default function BaseballVocabulary({ onBack }: Props) {
       setTimeout(() => setBallPosition({ x: 10, y: 40, scale: 0.5 }), 100);
       setTimeout(() => setBallPosition({ x: -20, y: 20, scale: 0.3 }), 500);
     }
-
     setTimeout(() => {
       setShowMeaning(false);
       setIsCorrect(null);
       setBallPosition({ x: 50, y: 100, scale: 1 });
       setBatterSwing(false);
-
       const newRemaining = remaining - 1;
       setRemaining(newRemaining);
-
-      if (newRemaining === 0) {
-        setGameState('game-over');
-        playSound('end');
-      } else {
-        setGameState('ready');
-      }
+      if (newRemaining === 0) { setGameState('game-over'); playSound('end'); }
+      else setGameState('ready');
     }, 2000);
   }, [gameState, currentWord, remaining, playSound]);
 
@@ -261,6 +313,8 @@ export default function BaseballVocabulary({ onBack }: Props) {
   }, []);
 
   const handleRestart = useCallback(() => {
+    const reshuffled = [...activeWords].sort(() => Math.random() - 0.5);
+    setActiveWords(reshuffled);
     setGameState('ready');
     setCurrentWord(null);
     setCorrect(0);
@@ -271,10 +325,12 @@ export default function BaseballVocabulary({ onBack }: Props) {
     setShowMeaning(false);
     setIsCorrect(null);
     setBallPosition({ x: 50, y: 100, scale: 1 });
-  }, []);
+  }, [activeWords]);
 
   const handleNextSet = useCallback(() => {
-    setGameState('select-mode');
+    setGameState('select-source');
+    setSourceType(null);
+    setActiveWords([]);
     setCurrentWord(null);
     setCorrect(0);
     setIncorrect(0);
@@ -284,60 +340,132 @@ export default function BaseballVocabulary({ onBack }: Props) {
     setShowMeaning(false);
     setIsCorrect(null);
     setBallPosition({ x: 50, y: 100, scale: 1 });
+    setSourceError(null);
+    setDebugInfo(null);
   }, []);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (gameState === 'ready') {
-          handlePitch();
-        } else if (gameState === 'showing-word' || gameState === 'showing-example') {
-          handleShowAnswer();
-        }
+        if (gameState === 'ready') handlePitch();
+        else if (gameState === 'showing-word' || gameState === 'showing-example') handleShowAnswer();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (gameState === 'showing-word') {
-          handleShowExample();
-        }
+        if (gameState === 'showing-word') handleShowExample();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (gameState === 'showing-answer') {
-          handleAnswer(true);
-        }
+        if (gameState === 'showing-answer') handleAnswer(true);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (gameState === 'showing-answer') {
-          handleAnswer(false);
-        }
+        if (gameState === 'showing-answer') handleAnswer(false);
       }
     };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [gameState, handlePitch, handleShowExample, handleShowAnswer, handleAnswer]);
+
+  if (gameState === 'select-source') {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-green-900 to-green-800 flex flex-col">
+        <header className="bg-white/10 backdrop-blur-sm border-b border-white/20">
+          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors">
+              <ArrowLeft size={20} />
+              戻る
+            </button>
+            <h1 className="text-2xl font-bold text-white">英単語100本ノック</h1>
+            <div className="w-24" />
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">データソースを選ぶ</h2>
+            <p className="text-sm text-gray-500 mb-6">出題する単語のソースを選択してください</p>
+
+            {sourceError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {sourceError}
+              </div>
+            )}
+
+            {isLoadingSource ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 size={40} className="animate-spin text-green-600" />
+                <p className="text-gray-600">Notionからデータを取得中...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => loadNotionSource('完璧', 'notion_perfect')}
+                  className="py-5 px-4 rounded-xl font-bold text-white text-lg bg-yellow-400 hover:bg-yellow-500 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  Notion：完璧
+                </button>
+                <button
+                  onClick={() => loadNotionSource('要復習', 'notion_review')}
+                  className="py-5 px-4 rounded-xl font-bold text-white text-lg bg-sky-400 hover:bg-sky-500 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  Notion：要復習
+                </button>
+                <button
+                  onClick={() => loadNotionSource('覚え中', 'notion_learning')}
+                  className="py-5 px-4 rounded-xl font-bold text-white text-lg bg-teal-400 hover:bg-teal-500 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  Notion：覚え中
+                </button>
+                <button
+                  onClick={loadBuiltinSource}
+                  className="py-5 px-4 rounded-xl font-bold text-white text-lg bg-green-500 hover:bg-green-600 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  内蔵データ
+                </button>
+              </div>
+            )}
+
+            <div className="mt-6 border-t pt-4">
+              <button
+                onClick={loadDebugInfo}
+                disabled={isLoadingDebug}
+                className="text-xs text-blue-500 hover:text-blue-700 underline"
+              >
+                {isLoadingDebug ? '確認中...' : '[デバッグ] Notionデータ構造を確認'}
+              </button>
+              {debugInfo && (
+                <pre className="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-700 overflow-auto max-h-48">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (gameState === 'select-mode') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-900 via-green-900 to-green-800 flex flex-col">
         <header className="bg-white/10 backdrop-blur-sm border-b border-white/20">
           <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors"
-            >
+            <button onClick={() => setGameState('select-source')} className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors">
               <ArrowLeft size={20} />
               戻る
             </button>
-            <h1 className="text-2xl font-bold text-white">⚾ 英単語100本ノック</h1>
-            <div className="w-24"></div>
+            <h1 className="text-2xl font-bold text-white">英単語100本ノック</h1>
+            <div className="w-24" />
           </div>
         </header>
 
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-3xl w-full animate-[slideUp_0.5s_ease-out]">
-            <h2 className="text-4xl font-bold text-center mb-4">⚾ モード選択</h2>
-            <p className="text-lg text-center text-gray-600 mb-12">学習モードを選択してください</p>
+            <h2 className="text-4xl font-bold text-center mb-2">モード選択</h2>
+            <p className="text-sm text-center text-gray-500 mb-2">
+              {sourceType === 'builtin' ? '内蔵データ' : `Notion：${sourceType === 'notion_perfect' ? '完璧' : sourceType === 'notion_review' ? '要復習' : '覚え中'}`}
+              　から {activeWords.length} 単語
+            </p>
+            <p className="text-lg text-center text-gray-600 mb-10">学習モードを選択してください</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <button
@@ -345,7 +473,7 @@ export default function BaseballVocabulary({ onBack }: Props) {
                 className="group relative bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-8 hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 <div className="text-center">
-                  <div className="text-5xl mb-4">🇬🇧</div>
+                  <div className="text-5xl mb-4">EN</div>
                   <h3 className="text-2xl font-bold mb-3">英和モード</h3>
                   <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-3">
                     <p className="text-lg">English → 日本語</p>
@@ -359,7 +487,7 @@ export default function BaseballVocabulary({ onBack }: Props) {
                 className="group relative bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-8 hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 <div className="text-center">
-                  <div className="text-5xl mb-4">🇯🇵</div>
+                  <div className="text-5xl mb-4">日</div>
                   <h3 className="text-2xl font-bold mb-3">和英モード</h3>
                   <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-3">
                     <p className="text-lg">日本語 → English</p>
@@ -382,28 +510,25 @@ export default function BaseballVocabulary({ onBack }: Props) {
       <div className="min-h-screen bg-gradient-to-b from-gray-900 via-green-900 to-green-800 flex flex-col">
         <header className="bg-white/10 backdrop-blur-sm border-b border-white/20">
           <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors"
-            >
+            <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors">
               <ArrowLeft size={20} />
               戻る
             </button>
-            <h1 className="text-2xl font-bold text-white">⚾ 英単語100本ノック</h1>
-            <div className="w-24"></div>
+            <h1 className="text-2xl font-bold text-white">英単語100本ノック</h1>
+            <div className="w-24" />
           </div>
         </header>
 
         <main className="flex-1 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full animate-[slideUp_0.5s_ease-out]">
-            <h2 className="text-4xl font-bold text-center mb-8">⚾ 結果発表！</h2>
+            <h2 className="text-4xl font-bold text-center mb-8">結果発表！</h2>
 
             <div className="text-center mb-8">
               <p className="text-2xl mb-4">{totalPitches}球中</p>
               <div className="space-y-2 text-xl">
-                <p className="text-green-600 font-bold">✅ 正解：{correct}本</p>
-                <p className="text-red-600 font-bold">❌ 不正解：{incorrect}本</p>
-                <p className="text-blue-600 font-bold text-3xl mt-4">📊 正解率：{correctRate}%</p>
+                <p className="text-green-600 font-bold">正解：{correct}本</p>
+                <p className="text-red-600 font-bold">不正解：{incorrect}本</p>
+                <p className="text-blue-600 font-bold text-3xl mt-4">正解率：{correctRate}%</p>
               </div>
             </div>
 
@@ -420,20 +545,20 @@ export default function BaseballVocabulary({ onBack }: Props) {
               </div>
             )}
 
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <button
                 onClick={handleRestart}
                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold"
               >
                 <RotateCcw size={20} />
-                同じモードでもう一度
+                同じ単語でもう一度
               </button>
               <button
                 onClick={handleNextSet}
                 className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-bold"
               >
                 <ArrowRightIcon size={20} />
-                モード変更して続ける
+                別のソースを選ぶ
               </button>
             </div>
           </div>
@@ -446,35 +571,30 @@ export default function BaseballVocabulary({ onBack }: Props) {
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-green-900 to-green-800 relative overflow-hidden">
       <div
         className="absolute inset-0 opacity-30"
-        style={{
-          background: 'radial-gradient(circle at 50% 40%, rgba(255,255,255,0.3) 0%, transparent 50%)'
-        }}
+        style={{ background: 'radial-gradient(circle at 50% 40%, rgba(255,255,255,0.3) 0%, transparent 50%)' }}
       />
 
       <header className="bg-white/10 backdrop-blur-sm border-b border-white/20 relative z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors"
-          >
+          <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors">
             <ArrowLeft size={20} />
             戻る
           </button>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white">⚾ 英単語100本ノック</h1>
+            <h1 className="text-2xl font-bold text-white">英単語100本ノック</h1>
             <p className="text-sm text-white/80 mt-1">
-              {mode === 'en-ja' ? '🇬🇧 英和モード (English → 日本語)' : '🇯🇵 和英モード (日本語 → English)'}
+              {mode === 'en-ja' ? '英和モード (English → 日本語)' : '和英モード (日本語 → English)'}
             </p>
           </div>
-          <div className="w-24"></div>
+          <div className="w-24" />
         </div>
       </header>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
         <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 mb-8 text-white text-xl font-bold text-center">
-          <span className="mr-6">✅ 正解: {correct}</span>
-          <span className="mr-6">❌ 不正解: {incorrect}</span>
-          <span>⚾ 残り: {remaining}</span>
+          <span className="mr-6">正解: {correct}</span>
+          <span className="mr-6">不正解: {incorrect}</span>
+          <span>残り: {remaining}</span>
         </div>
 
         <div className="relative h-[500px] flex items-center justify-center">
@@ -483,10 +603,7 @@ export default function BaseballVocabulary({ onBack }: Props) {
               src={batterSwing ? "/batter2.png" : "/batter1.png"}
               alt="バッター"
               className="h-[400px] w-auto object-contain filter drop-shadow-lg"
-              style={{
-                imageRendering: 'auto',
-                pointerEvents: 'none'
-              }}
+              style={{ imageRendering: 'auto', pointerEvents: 'none' }}
             />
           </div>
 
@@ -503,10 +620,7 @@ export default function BaseballVocabulary({ onBack }: Props) {
                 src="/ball.png"
                 alt="ボール"
                 className="w-16 h-16 object-contain filter drop-shadow-lg"
-                style={{
-                  imageRendering: 'auto',
-                  pointerEvents: 'none'
-                }}
+                style={{ imageRendering: 'auto', pointerEvents: 'none' }}
               />
             </div>
           )}
@@ -527,12 +641,12 @@ export default function BaseballVocabulary({ onBack }: Props) {
                 <p className="text-5xl font-bold text-gray-900 text-center mb-6">
                   {mode === 'en-ja' ? currentWord.en : currentWord.ja}
                 </p>
-                <div className="bg-blue-50 rounded-xl p-6">
-                  <p className="text-sm text-blue-600 font-bold mb-2">例文</p>
-                  <p className="text-2xl text-gray-800 leading-relaxed">
-                    {currentWord.example}
-                  </p>
-                </div>
+                {currentWord.example && (
+                  <div className="bg-blue-50 rounded-xl p-6">
+                    <p className="text-sm text-blue-600 font-bold mb-2">例文</p>
+                    <p className="text-2xl text-gray-800 leading-relaxed">{currentWord.example}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -558,50 +672,27 @@ export default function BaseballVocabulary({ onBack }: Props) {
         <div className="mt-12 text-center">
           <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg p-6 text-white">
             <p className="text-xl font-bold mb-2">キー操作</p>
-            {gameState === 'ready' && (
-              <p className="text-lg">
-                ↑ 投球して{mode === 'en-ja' ? '英単語' : '日本語の意味'}を表示
-              </p>
-            )}
+            {gameState === 'ready' && <p className="text-lg">↑ 投球して{mode === 'en-ja' ? '英単語' : '日本語の意味'}を表示</p>}
             {gameState === 'showing-word' && (
               <div className="text-lg space-y-1">
                 <p>↑ {mode === 'en-ja' ? '日本語の意味' : '英語'}を表示</p>
                 <p>↓ 例文を表示</p>
               </div>
             )}
-            {gameState === 'showing-example' && (
-              <p className="text-lg">
-                ↑ {mode === 'en-ja' ? '日本語の意味' : '英語'}を表示
-              </p>
-            )}
-            {gameState === 'showing-answer' && (
-              <p className="text-lg">← まちがえた　わかった → 　　</p>
-            )}
+            {gameState === 'showing-example' && <p className="text-lg">↑ {mode === 'en-ja' ? '日本語の意味' : '英語'}を表示</p>}
+            {gameState === 'showing-answer' && <p className="text-lg">← まちがえた　わかった →</p>}
           </div>
         </div>
       </div>
 
       <style>{`
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
         }
-
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
