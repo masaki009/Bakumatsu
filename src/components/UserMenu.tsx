@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, Layers, MessageSquare, Heart, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, FileCheck, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors, Languages, Volume2 } from 'lucide-react';
+import { LogOut, Zap, User, TrendingUp, Settings, ArrowLeft, MessageSquare, FileText, BookOpen, Wrench, UserCog, Mic, Music, Apple, Activity, MessageCircle, PenTool, Sparkles, Droplet, Hash, Database, Headphones, Target, Egg, FastForward, Bookmark, AlignLeft, Scissors, Languages, Volume2 } from 'lucide-react';
 import CoachProfile from './CoachProfile';
 import SelfProfile from './SelfProfile';
 import ReportSubmit from './ReportSubmit';
@@ -28,6 +28,7 @@ import WordOrderQuiz from './WordOrderQuiz';
 import SlashReading from './SlashReading';
 import JapaneseToEnglishProcess from './JapaneseToEnglishProcess';
 import SoundChangeChunk from './SoundChangeChunk';
+import ChallengeMenu from './ChallengeMenu';
 import { useGameData } from '../hooks/useGameData';
 
 type SubMenuItem = {
@@ -35,6 +36,7 @@ type SubMenuItem = {
   label: string;
   icon: any;
   url?: string;
+  notionBadge?: 'arrow' | 'plain';
 };
 
 type MainMenuItem = {
@@ -64,18 +66,16 @@ export default function UserMenu() {
       subtitle: 'ドリルや問題にチャレンジするよ',
       icon: Zap,
       subItems: [
-        { id: 'simultaneous', label: 'サイマル　英和', icon: Layers, url: 'https://chatgpt.com/g/g-ExL0moSVr-saimaru-ying-he-mu-mo-ying-yu-shu-ju-du-fa' },
-        { id: 'paraphrase', label: 'パラフレイズ　和英', icon: MessageSquare, url: 'https://chatgpt.com/g/g-683febd1030c8191bd863162c7675c4a-harahureisu-he-ying-mu-mo-ying-yu-shu-ju-du-fa' },
-        { id: 'chunk', label: 'チャンク　直接アクセス', icon: Database },
-        { id: 'vocabulary', label: 'ボキャブラ　直接アクセス', icon: BookOpen },
-        { id: 'ex-reading', label: '多読速読音読', icon: Mic },
-        { id: 'audio-memory', label: '音声神経衰弱', icon: Music },
-        { id: 'listening-practice', label: 'リスニング練習', icon: Headphones },
-        { id: 'baseball-vocabulary', label: '英単語100本ノック', icon: Target },
-        { id: 'word-order-quiz', label: '語順クイズ', icon: AlignLeft },
         { id: 'slash-reading', label: 'スラッシュリーディング', icon: Scissors },
+        { id: 'ex-reading', label: '多読速読音読', icon: Mic },
+        { id: 'word-order-quiz', label: '語順クイズ', icon: AlignLeft },
         { id: 'japanese-english-process', label: '和英プロセス練習', icon: Languages },
+        { id: 'baseball-vocabulary', label: '英単語100本ノック', icon: Target, notionBadge: 'arrow' },
+        { id: 'vocabulary', label: 'ボキャブラ　直接アクセス', icon: BookOpen, notionBadge: 'plain' },
+        { id: 'listening-practice', label: 'リスニング練習', icon: Headphones },
+        { id: 'audio-memory', label: '音声神経衰弱', icon: Music, notionBadge: 'arrow' },
         { id: 'sound-change-chunk', label: '音変化チャンク', icon: Volume2 },
+        { id: 'chunk', label: 'チャンク　直接アクセス', icon: Database, notionBadge: 'plain' },
       ],
     },
     {
@@ -361,91 +361,7 @@ export default function UserMenu() {
             </div>
 
 {selectedMenu === 'challenge' ? (
-              <div className="space-y-6">
-                {/* Section 1: ChatGPT Login Required */}
-                <div>
-                  <h3 className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b border-blue-300">
-                    こちらはChatGPTのログインが必要です
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    {currentMenu?.subItems
-                      .filter((item) => ['simultaneous', 'paraphrase'].includes(item.id))
-                      .map((subItem) => {
-                        const SubIcon = subItem.icon;
-                        return (
-                          <button
-                            key={subItem.id}
-                            onClick={() => handleSubMenuClick(subItem.id, subItem.url)}
-                            className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-green-500 hover:shadow-lg transition-all group"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors flex-shrink-0">
-                                <SubIcon size={24} className="text-green-600" />
-                              </div>
-                              <h3 className="text-lg font-semibold text-gray-900 text-left">{subItem.label}</h3>
-                            </div>
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-
-                {/* Section 2: Notion Integration */}
-                <div>
-                  <h3 className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b border-blue-300">
-                    こちらはNotionを参照するページになっています
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    {currentMenu?.subItems
-                      .filter((item) => ['chunk', 'vocabulary'].includes(item.id))
-                      .map((subItem) => {
-                        const SubIcon = subItem.icon;
-                        return (
-                          <button
-                            key={subItem.id}
-                            onClick={() => handleSubMenuClick(subItem.id, subItem.url)}
-                            className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-green-500 hover:shadow-lg transition-all group"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors flex-shrink-0">
-                                <SubIcon size={24} className="text-green-600" />
-                              </div>
-                              <h3 className="text-lg font-semibold text-gray-900 text-left">{subItem.label}</h3>
-                            </div>
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-
-                {/* Section 3: Training Methods */}
-                <div>
-                  <h3 className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b border-blue-300">
-                    素読法、空耳法などのトレーニング
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {currentMenu?.subItems
-                      .filter((item) => ['ex-reading', 'audio-memory', 'listening-practice', 'baseball-vocabulary', 'word-order-quiz', 'slash-reading', 'japanese-english-process', 'sound-change-chunk'].includes(item.id))
-                      .map((subItem) => {
-                        const SubIcon = subItem.icon;
-                        return (
-                          <button
-                            key={subItem.id}
-                            onClick={() => handleSubMenuClick(subItem.id, subItem.url)}
-                            className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-green-500 hover:shadow-lg transition-all group"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors flex-shrink-0">
-                                <SubIcon size={24} className="text-green-600" />
-                              </div>
-                              <h3 className="text-lg font-semibold text-gray-900 text-left">{subItem.label}</h3>
-                            </div>
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-              </div>
+              <ChallengeMenu subItems={currentMenu?.subItems ?? []} onItemClick={handleSubMenuClick} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentMenu?.subItems.map((subItem) => {
