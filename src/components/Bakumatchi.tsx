@@ -353,11 +353,11 @@ export default function Bakumatchi({ onBack }: BakumatchiProps) {
             <ul className="space-y-2 text-gray-700">
               <li className="flex items-center gap-2">
                 <span className="text-blue-600 font-bold">•</span>
-                <span>サイマル　英和（件数）</span>
+                <span>英和（件数）</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-blue-600 font-bold">•</span>
-                <span>パラフレイズ　和英（件数）</span>
+                <span>和英（件数）</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-blue-600 font-bold">•</span>
