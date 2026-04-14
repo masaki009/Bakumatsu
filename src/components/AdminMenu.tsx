@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, Database, Users } from 'lucide-react';
+import AdminNotionSettings from './AdminNotionSettings';
 
 type MenuItem = {
   id: string;
@@ -88,12 +89,15 @@ export default function AdminMenu() {
           })}
         </div>
 
-        {selectedMenu && (
+        {selectedMenu === 'rfdbset' && (
+          <div className="mt-8">
+            <AdminNotionSettings onBack={() => setSelectedMenu(null)} />
+          </div>
+        )}
+
+        {selectedMenu && selectedMenu !== 'rfdbset' && (
           <div className="mt-8 bg-white rounded-xl p-8 border border-gray-200 shadow-sm">
             <div className="text-center">
-              <div className="mb-4 inline-block p-4 bg-orange-100 rounded-full">
-                <span className="text-3xl">🔧</span>
-              </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">準備中</h3>
               <p className="text-gray-600">
                 「{menuItems.find((item) => item.id === selectedMenu)?.label}」機能は現在開発中です
